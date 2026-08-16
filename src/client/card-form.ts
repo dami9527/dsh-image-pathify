@@ -8,6 +8,7 @@
 import type {
   ImagePathifyPublicSettings,
   ImagePathifySettingsUpdate,
+  ImagePathifyUpdateStatus,
   PathifyModelEntry,
 } from "../contract.ts";
 import { defaultPublicSettings } from "../contract.ts";
@@ -53,6 +54,13 @@ export interface ImagePathifyCardState {
   prefix: CardFieldState;
   relaxAdmission: { checked: boolean; overridden: boolean };
   models: { entries: readonly PathifyModelEntry[]; overridden: boolean };
+  update:
+    | {
+        installedVersion: string;
+        latestVersion: string;
+        command: string;
+      }
+    | undefined;
 }
 
 /** Actions the card's slot entry injects. */
@@ -113,6 +121,13 @@ export class ImagePathifyCardController {
   private relaxDraft: boolean | undefined;
   private modelsDraft: PathifyModelEntry[] | undefined;
   private credential = { ref: "", configured: false, writable: true };
+  private update:
+    | {
+        installedVersion: string;
+        latestVersion: string;
+        command: string;
+      }
+    | undefined = undefined;
   private readonly store: SnapshotStore<ImagePathifyCardState>;
 
   constructor(
@@ -140,6 +155,26 @@ export class ImagePathifyCardController {
   /** Hide the card while the Remote is down. */
   markUnavailable(): void {
     this.available = false;
+    this.update = undefined;
+    this.publish();
+  }
+
+  /**
+   * Apply a host npm-probe result. Only an available update is kept; a
+   * failed or current-version probe clears the header banner.
+   */
+  receiveUpdate(status: ImagePathifyUpdateStatus): void {
+    this.update =
+      status.updateAvailable &&
+      status.installedVersion.length > 0 &&
+      status.latestVersion.length > 0 &&
+      status.command.length > 0
+        ? {
+            installedVersion: status.installedVersion,
+            latestVersion: status.latestVersion,
+            command: status.command,
+          }
+        : undefined;
     this.publish();
   }
 
@@ -248,6 +283,7 @@ export class ImagePathifyCardController {
         entries: models,
         overridden: !modelsEqual(models, DEFAULTS.models),
       },
+      update: this.update,
     };
   }
 

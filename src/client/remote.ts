@@ -11,6 +11,7 @@ import { IMAGE_PATHIFY_INVOCATIONS } from "../contract.ts";
 import type {
   ImagePathifyPublicSettings,
   ImagePathifySettingsUpdate,
+  ImagePathifyUpdateStatus,
 } from "../contract.ts";
 
 /** The imagePathify Remote namespace's client contribution. */
@@ -26,6 +27,7 @@ declare module "@deepseek-ai/dsh-typert-protocol" {
     updateSettings: (
       update: ImagePathifySettingsUpdate,
     ) => Promise<RemoteResult<ImagePathifyPublicSettings>>;
+    getUpdate: () => Promise<RemoteResult<ImagePathifyUpdateStatus>>;
   }
   interface TypertRemoteMap {
     "imagePathify/getSettings": () => Promise<
@@ -34,6 +36,9 @@ declare module "@deepseek-ai/dsh-typert-protocol" {
     "imagePathify/updateSettings": (
       update: ImagePathifySettingsUpdate,
     ) => Promise<RemoteResult<ImagePathifyPublicSettings>>;
+    "imagePathify/getUpdate": () => Promise<
+      RemoteResult<ImagePathifyUpdateStatus>
+    >;
   }
   interface TypertRemoteNamespaceMap {
     imagePathify: TypertRemoteNamespace$696d61676550617468696679;

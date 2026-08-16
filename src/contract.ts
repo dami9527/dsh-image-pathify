@@ -36,6 +36,18 @@ export interface ImagePathifyPublicSettings {
 }
 
 /**
+ * Result of a silent npm latest-version probe. `updateAvailable` is the only
+ * signal the card uses; a failed probe still returns this shape with
+ * `updateAvailable: false`.
+ */
+export interface ImagePathifyUpdateStatus {
+  readonly installedVersion: string;
+  readonly latestVersion: string;
+  readonly updateAvailable: boolean;
+  readonly command: string;
+}
+
+/**
  * One field patch from the settings page. The API key is not a field here —
  * the card writes it through `credentials.set`.
  */
@@ -101,6 +113,19 @@ export const publicSettingsSchema: TypertSchema<ImagePathifyPublicSettings> = {
       prefix: readString(value.prefix, "prefix"),
       models: modelsRaw.map(readModel),
       relaxAdmission: readBoolean(value.relaxAdmission, "relaxAdmission"),
+    };
+  },
+};
+
+/** Strict codec for the update-probe result. */
+export const updateStatusSchema: TypertSchema<ImagePathifyUpdateStatus> = {
+  parse(value: unknown): ImagePathifyUpdateStatus {
+    if (!isRecord(value)) fail("update status must be an object");
+    return {
+      installedVersion: readString(value.installedVersion, "installedVersion"),
+      latestVersion: readString(value.latestVersion, "latestVersion"),
+      updateAvailable: readBoolean(value.updateAvailable, "updateAvailable"),
+      command: readString(value.command, "command"),
     };
   },
 };
@@ -176,6 +201,19 @@ export const IMAGE_PATHIFY_INVOCATIONS: readonly InvocationDescriptor[] = [
       mode: "strict",
       typeSymbol: "dsh-image-pathify#ImagePathifyPublicSettings",
       schema: publicSettingsSchema,
+    },
+  },
+  {
+    id: "dsh-image-pathify#imagePathify/getUpdate",
+    service: "imagePathify",
+    namespace: "imagePathify",
+    method: "getUpdate",
+    invocation: { kind: "direct" },
+    parameters: [],
+    result: {
+      mode: "strict",
+      typeSymbol: "dsh-image-pathify#ImagePathifyUpdateStatus",
+      schema: updateStatusSchema,
     },
   },
 ];

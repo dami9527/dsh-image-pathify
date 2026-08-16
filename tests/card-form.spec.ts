@@ -131,4 +131,28 @@ describe("ImagePathifyCardController", () => {
     });
     expect(card.snapshot.getSnapshot().dirty).toBe(false);
   });
+
+  it("keeps an available update on the header snapshot and clears a no-op probe", () => {
+    const card = new ImagePathifyCardController(async () => sample());
+    card.receive(sample());
+    expect(card.snapshot.getSnapshot().update).toBeUndefined();
+    card.receiveUpdate({
+      installedVersion: "0.1.0",
+      latestVersion: "0.1.1",
+      updateAvailable: true,
+      command: "dsh plugin --profile web add dsh-image-pathify@latest",
+    });
+    expect(card.snapshot.getSnapshot().update).toEqual({
+      installedVersion: "0.1.0",
+      latestVersion: "0.1.1",
+      command: "dsh plugin --profile web add dsh-image-pathify@latest",
+    });
+    card.receiveUpdate({
+      installedVersion: "0.1.1",
+      latestVersion: "0.1.1",
+      updateAvailable: false,
+      command: "dsh plugin --profile web add dsh-image-pathify@latest",
+    });
+    expect(card.snapshot.getSnapshot().update).toBeUndefined();
+  });
 });

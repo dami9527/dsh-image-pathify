@@ -33,6 +33,11 @@ export const TYPERT_MANIFEST: TypertContribution = {
             signature:
               "updateSettings(update: ImagePathifySettingsUpdate): Promise<ImagePathifyPublicSettings>",
           },
+          {
+            kind: "method",
+            name: "getUpdate",
+            signature: "getUpdate(): Promise<ImagePathifyUpdateStatus>",
+          },
         ],
         types: [],
       },

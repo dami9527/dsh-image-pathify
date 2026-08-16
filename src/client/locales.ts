@@ -36,6 +36,10 @@ export const zh = {
   modelPlaceholder: "model",
   add: "添加",
   remove: "移除 {name}",
+  updateHint: "发现新版本 {old} → {new}",
+  updateCopy: "复制升级命令",
+  updateCopied: "已复制",
+  updateCopyFail: "复制失败",
 } satisfies Record<string, string>;
 
 /** The `image-pathify` namespace key union. */
@@ -77,6 +81,10 @@ export const en = {
   modelPlaceholder: "model",
   add: "Add",
   remove: "Remove {name}",
+  updateHint: "Update available: {old} → {new}",
+  updateCopy: "Copy upgrade command",
+  updateCopied: "Copied",
+  updateCopyFail: "Copy failed",
 } satisfies Record<ImagePathifyKey, string>;
 
 /** Locale namespace id registered under ctx.locale. */

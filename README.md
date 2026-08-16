@@ -18,12 +18,10 @@
 
 ## 安装
 
-把 `<name>` 换成你的 profile 名（Web 界面一般是 `web`）：
-
 ```sh
-dsh plugin --profile <name> add dsh-image-pathify
-dsh --profile <name> --dump-config   # 能看到 dsh-image-pathify 就装好了
-dsh web                              # 打开 Web 界面后生效
+dsh plugin --profile web add dsh-image-pathify
+dsh --profile web --dump-config   # 能看到 dsh-image-pathify 就装好了
+dsh web
 ```
 
 打开 **设置 → 插件 → 识图**，填写后点保存：
@@ -32,7 +30,22 @@ dsh web                              # 打开 Web 界面后生效
 - 识图模型（默认 `qwen-vl-plus`）
 - 识图 API 地址（默认阿里云 DashScope compatible-mode）
 
-不需要再单独安装 `claude-vision-skill`，也不需要改 Agent 预设。
+任何 OpenAI 兼容的视觉接口都可以，把地址和模型改成你的服务即可。设置页改动保存后立即生效，不用重启。
+
+## 更新
+
+已装版本落后于 npm 最新版时，**识图**卡片 header（不用展开）会显示「发现新版本 x → y」和 **复制升级命令**。点按钮把命令复制到剪贴板，然后：
+
+1. 结束当前正在跑的 `dsh web`（终端里 `Ctrl+C`）
+2. 执行复制出来的命令：
+
+```sh
+dsh plugin --profile web add dsh-image-pathify@latest
+```
+
+3. 再启动 `dsh web`
+
+插件不会自动改你机器上的包。查询失败或已是最新时，卡片上不显示任何提示。
 
 ## 怎么确认可用
 
@@ -42,7 +55,7 @@ dsh web                              # 打开 Web 界面后生效
 
 ## 配置
 
-设置页改动保存后立即生效。也可以写在 `$DSH_HOME/profiles/<name>/cordis.patch.yml`：
+设置页保存后立即生效。识图字段写在 `$DSH_HOME/settings.yaml` 的 `image-pathify` 段；API 密钥写在 `$DSH_HOME/.credentials.yaml`，不进设置文件。
 
 | 选项             | 默认                                                | 做什么                                                               |
 | ---------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
@@ -56,25 +69,22 @@ dsh web                              # 打开 Web 界面后生效
 只允许 deepseek-v4-flash 发图的例子：
 
 ```yaml
-- id: dsh-image-pathify
-  config:
-    models:
-      - provider: deepseek-official
-        model: deepseek-v4-flash
+image-pathify:
+  models:
+    - provider: deepseek-official
+      model: deepseek-v4-flash
 ```
 
-更完整的说明见 [docs/识图.md](docs/识图.md)。
+模型侧只多一个工具 `analyze_image`：`image` 填本地绝对路径或 `http(s)` 图片 URL（不要带路径前缀），`prompt` 可选。
 
 ## 开发与构建
 
 ```sh
 pnpm install
-pnpm typecheck
-pnpm test
-pnpm build
+pnpm check
 ```
 
-也可以只跑 `pnpm check`：它会按顺序执行 `typecheck`、`test`、`build`。
+`pnpm check` 会按顺序执行 `typecheck`、`test`、`build`。
 
 ## License
 

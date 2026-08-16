@@ -1,6 +1,6 @@
 /** Vision plugin card: staged settings under Settings → Plugins. */
 
-import { useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import type { PathifyModelEntry } from "../contract.ts";
 import type { ImagePathifyCardState } from "./card-form.ts";
 import { fmt, type ImagePathifyKey } from "./locales.ts";
@@ -81,6 +81,28 @@ function PlusIcon(): ReactElement {
   );
 }
 
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const input = document.createElement("textarea");
+      input.value = text;
+      input.setAttribute("readonly", "");
+      input.style.position = "fixed";
+      input.style.left = "-9999px";
+      document.body.appendChild(input);
+      input.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(input);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
 function modelKey(entry: PathifyModelEntry): string {
   return `${entry.provider}\0${entry.model}`;
 }
@@ -129,7 +151,19 @@ export function ImagePathifyCard({
   const [open, setOpen] = useState(false);
   const [providerDraft, setProviderDraft] = useState("");
   const [modelDraft, setModelDraft] = useState("");
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
   const state = useImagePathifyCard((snapshot) => snapshot);
+  useEffect(() => {
+    if (copyState === "idle") return;
+    const id = window.setTimeout(() => {
+      setCopyState("idle");
+    }, 2000);
+    return () => {
+      window.clearTimeout(id);
+    };
+  }, [copyState]);
   if (!state.available) return null;
 
   const title = t("title");
@@ -149,6 +183,21 @@ export function ImagePathifyCard({
     setModelDraft("");
   };
 
+  const copyUpgrade = (): void => {
+    const command = state.update?.command;
+    if (command === undefined) return;
+    void copyText(command).then((ok) => {
+      setCopyState(ok ? "copied" : "failed");
+    });
+  };
+
+  const copyLabel =
+    copyState === "copied"
+      ? t("updateCopied")
+      : copyState === "failed"
+        ? t("updateCopyFail")
+        : t("updateCopy");
+
   return (
     <li
       className={
@@ -157,32 +206,57 @@ export function ImagePathifyCard({
           : "dsh_imagePathify_card"
       }
     >
-      <button
-        type="button"
-        className="dsh_imagePathify_header"
-        aria-expanded={open}
-        aria-label={`${t(open ? "collapse" : "expand")}: ${title}`}
-        onClick={() => {
-          setOpen(!open);
-        }}
+      <div
+        className={
+          state.update !== undefined
+            ? "dsh_imagePathify_head dsh_imagePathify_headHasUpdate"
+            : "dsh_imagePathify_head"
+        }
       >
-        <span className="dsh_imagePathify_headText">
-          <span className="dsh_imagePathify_name">{title}</span>
-          <span className="dsh_imagePathify_description">
-            {t("description")}
+        <button
+          type="button"
+          className="dsh_imagePathify_header"
+          aria-expanded={open}
+          aria-label={`${t(open ? "collapse" : "expand")}: ${title}`}
+          onClick={() => {
+            setOpen(!open);
+          }}
+        >
+          <span className="dsh_imagePathify_headText">
+            <span className="dsh_imagePathify_name">{title}</span>
+            <span className="dsh_imagePathify_description">
+              {t("description")}
+            </span>
           </span>
-        </span>
-        {state.dirty ? (
-          <span className="dsh_imagePathify_pending">{t("unsaved")}</span>
+          {state.dirty ? (
+            <span className="dsh_imagePathify_pending">{t("unsaved")}</span>
+          ) : null}
+          <ChevronIcon
+            className={
+              open
+                ? "dsh_imagePathify_chevron dsh_imagePathify_chevronOpen"
+                : "dsh_imagePathify_chevron"
+            }
+          />
+        </button>
+        {state.update !== undefined ? (
+          <div className="dsh_imagePathify_update" role="status">
+            <span className="dsh_imagePathify_updateText">
+              {translate("updateHint", {
+                old: state.update.installedVersion,
+                new: state.update.latestVersion,
+              })}
+            </span>
+            <button
+              type="button"
+              className="dsh_imagePathify_updateCopy"
+              onClick={copyUpgrade}
+            >
+              {copyLabel}
+            </button>
+          </div>
         ) : null}
-        <ChevronIcon
-          className={
-            open
-              ? "dsh_imagePathify_chevron dsh_imagePathify_chevronOpen"
-              : "dsh_imagePathify_chevron"
-          }
-        />
-      </button>
+      </div>
       {open ? (
         <div className="dsh_imagePathify_body">
           <div className="dsh_imagePathify_field">

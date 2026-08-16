@@ -48,6 +48,7 @@ import {
 } from "./settings.ts";
 import { registerAnalyzeImageTool } from "./tool.ts";
 import { TYPERT_MANIFEST } from "./typert.ts";
+import { checkPluginUpdate } from "./update.ts";
 
 export { Config } from "./config.ts";
 export {
@@ -195,10 +196,12 @@ export function apply(ctx: Context, config?: object): void {
     });
 
     sctx.inject(["typert"], (tctx: Context) => {
+      const updateProbe = checkPluginUpdate();
       new ImagePathifyRuntime(
         tctx,
         () => toPublicSettings(scope.get()),
         (update) => applySettingsUpdate(scope, update),
+        () => updateProbe,
       );
       tctx.effect(() => {
         const dispose = tctx.typert.register(TYPERT_MANIFEST);

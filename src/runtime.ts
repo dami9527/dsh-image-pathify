@@ -11,6 +11,7 @@ import { Service, type Context } from "@deepseek-ai/cordis";
 import type {
   ImagePathifyPublicSettings,
   ImagePathifySettingsUpdate,
+  ImagePathifyUpdateStatus,
 } from "./contract.ts";
 
 /** Same shape `bindTypertRemote` freezes; kept local so this module does not import `dsh-typert-protocol`. */
@@ -31,6 +32,7 @@ export class ImagePathifyRuntime extends Service {
     private readonly writeSettings: (
       update: ImagePathifySettingsUpdate,
     ) => Promise<ImagePathifyPublicSettings>,
+    private readonly readUpdate: () => Promise<ImagePathifyUpdateStatus>,
   ) {
     super(ctx, "imagePathify");
     this.typertRemote = Object.freeze({
@@ -50,5 +52,10 @@ export class ImagePathifyRuntime extends Service {
     update: ImagePathifySettingsUpdate,
   ): Promise<ImagePathifyPublicSettings> {
     return this.writeSettings(update);
+  }
+
+  /** Return the cached npm latest-version probe (started at plugin load). */
+  getUpdate(): Promise<ImagePathifyUpdateStatus> {
+    return this.readUpdate();
   }
 }

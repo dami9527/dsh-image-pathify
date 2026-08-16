@@ -328,6 +328,45 @@ export const cssText = `
   outline: 2px solid var(--dsw-alias-brand-primary);
   outline-offset: 1px;
 }
+.dsh_imagePathify_headHasUpdate .dsh_imagePathify_header {
+  padding-bottom: 8px;
+}
+.dsh_imagePathify_update {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.dsh_imagePathify_updateText {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--dsw-alias-state-warn-primary);
+}
+.dsh_imagePathify_updateCopy {
+  appearance: none;
+  flex: none;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+.dsh_imagePathify_updateCopy:hover {
+  color: var(--dsw-alias-label-primary);
+  border-color: var(--dsw-alias-label-dimmed);
+}
+.dsh_imagePathify_updateCopy:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 1px;
+}
 `;
 
 /** Inject the stylesheet once into `document.head`. */

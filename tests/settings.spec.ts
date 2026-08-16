@@ -98,6 +98,12 @@ describe("ImagePathifyRuntime typertRemote", () => {
       ctx,
       () => defaultPublicSettings(),
       async () => defaultPublicSettings(),
+      async () => ({
+        installedVersion: "0.1.0",
+        latestVersion: "0.1.0",
+        updateAvailable: false,
+        command: "dsh plugin --profile web add dsh-image-pathify@latest",
+      }),
     );
     const runtime = ctx.get("imagePathify") as ImagePathifyRuntime | undefined;
     expect(runtime).toBeDefined();
@@ -110,5 +116,26 @@ describe("ImagePathifyRuntime typertRemote", () => {
     expect(binding.service).toBe(original);
     expect(binding.serviceKey).toBe("imagePathify");
     expect(binding.namespace).toBe("imagePathify");
+  });
+
+  it("returns the npm probe through getUpdate", async () => {
+    const ctx = new Context();
+    contexts.push(ctx);
+    const status = {
+      installedVersion: "0.1.0",
+      latestVersion: "0.1.1",
+      updateAvailable: true,
+      command: "dsh plugin --profile web add dsh-image-pathify@latest",
+    };
+    new ImagePathifyRuntime(
+      ctx,
+      () => defaultPublicSettings(),
+      async () => defaultPublicSettings(),
+      async () => status,
+    );
+    const runtime = originalOf(
+      ctx.get("imagePathify") as ImagePathifyRuntime,
+    ) as ImagePathifyRuntime;
+    await expect(runtime.getUpdate()).resolves.toEqual(status);
   });
 });

@@ -14,6 +14,7 @@ import type {} from "@deepseek-ai/dsh-client-ui-settings/client";
 import type {
   ImagePathifyPublicSettings,
   ImagePathifySettingsUpdate,
+  ImagePathifyUpdateStatus,
 } from "../contract.ts";
 import {
   ImagePathifyCardController,
@@ -40,6 +41,10 @@ interface ImagePathifyNamespaceFace {
     update: ImagePathifySettingsUpdate,
   ): Promise<
     | { ok: true; value: ImagePathifyPublicSettings }
+    | { ok: false; error: { code: string; message: string; details: object } }
+  >;
+  getUpdate(): Promise<
+    | { ok: true; value: ImagePathifyUpdateStatus }
     | { ok: false; error: { code: string; message: string; details: object } }
   >;
 }
@@ -174,6 +179,19 @@ export function apply(ctx: ClientContext): void {
     }
   };
 
+  const loadUpdate = async (): Promise<void> => {
+    const handle = remote;
+    if (handle === undefined) return;
+    try {
+      const result = await handle.getUpdate();
+      if (remote !== handle) return;
+      if (!result.ok) return;
+      card.receiveUpdate(result.value);
+    } catch {
+      // Probe failures stay silent: the card simply has no header banner.
+    }
+  };
+
   ctx.effect(async () => {
     const dispose = await ctx.remote.$mount(IMAGE_PATHIFY_REMOTE);
     remote = (ctx.reflect as unknown as { get(name: string): unknown }).get(
@@ -185,6 +203,7 @@ export function apply(ctx: ClientContext): void {
       );
     }
     await loadSettings();
+    void loadUpdate();
     return () => {
       settingsGeneration += 1;
       remote = undefined;
@@ -195,6 +214,7 @@ export function apply(ctx: ClientContext): void {
 
   ctx.on("connection/reset", () => {
     void loadSettings();
+    void loadUpdate();
   });
 
   ctx.slots.inject("settings.plugin.item", () =>

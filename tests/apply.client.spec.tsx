@@ -13,6 +13,7 @@ import { defaultPublicSettings } from "../src/contract.ts";
 import type {
   ImagePathifyPublicSettings,
   ImagePathifySettingsUpdate,
+  ImagePathifyUpdateStatus,
 } from "../src/contract.ts";
 import type { ImagePathifyCardState } from "../src/client/card-form.ts";
 import { DEFAULT_API_KEY_ENV } from "../src/defaults.ts";
@@ -26,6 +27,7 @@ interface BootOptions {
   updateSettings?: (
     update: ImagePathifySettingsUpdate,
   ) => Promise<RemoteResult<ImagePathifyPublicSettings>>;
+  getUpdate?: () => Promise<RemoteResult<ImagePathifyUpdateStatus>>;
   withoutNamespace?: boolean;
 }
 
@@ -60,6 +62,18 @@ async function boot(options: BootOptions = {}) {
         return { ok: true as const, value: settings };
       }),
   );
+  const getUpdate = vi.fn(
+    options.getUpdate ??
+      (async () => ({
+        ok: true as const,
+        value: {
+          installedVersion: "0.1.1",
+          latestVersion: "0.1.1",
+          updateAvailable: false,
+          command: "dsh plugin --profile web add dsh-image-pathify@latest",
+        },
+      })),
+  );
   const credentials = new Map<string, string>();
   const describeCredentials = vi.fn(async ({ refs }: { refs: string[] }) => ({
     result: {
@@ -85,7 +99,11 @@ async function boot(options: BootOptions = {}) {
   );
   ctx.provide("remote", { $mount: mount, $on: vi.fn(() => () => {}) });
   if (options.withoutNamespace !== true) {
-    ctx.provide("remote.imagePathify", { getSettings, updateSettings });
+    ctx.provide("remote.imagePathify", {
+      getSettings,
+      updateSettings,
+      getUpdate,
+    });
   }
   ctx.provide("slots", { inject: slotsInject, register: slotsRegister });
   ctx.provide("locale", { register: localeRegister, bind });
@@ -106,6 +124,7 @@ async function boot(options: BootOptions = {}) {
     slotsInject,
     getSettings,
     updateSettings,
+    getUpdate,
     describeCredentials,
     setCredential,
   };
@@ -196,5 +215,31 @@ describe("dsh-image-pathify client apply", () => {
     expect(booted.updateSettings).not.toHaveBeenCalled();
     expect(face.hooks.imagePathifyCard.getSnapshot().apiKeySet).toBe(true);
     expect(face.hooks.imagePathifyCard.getSnapshot().apiKeyText).toBe("");
+  });
+
+  it("surfaces an available update on the card header snapshot", async () => {
+    const booted = await boot({
+      getUpdate: async () => ({
+        ok: true,
+        value: {
+          installedVersion: "0.1.0",
+          latestVersion: "0.1.1",
+          updateAvailable: true,
+          command: "dsh plugin --profile web add dsh-image-pathify@latest",
+        },
+      }),
+    });
+    await expect
+      .poll(
+        () =>
+          pluginCard(booted).inject().hooks.imagePathifyCard.getSnapshot()
+            .update,
+      )
+      .toEqual({
+        installedVersion: "0.1.0",
+        latestVersion: "0.1.1",
+        command: "dsh plugin --profile web add dsh-image-pathify@latest",
+      });
+    expect(booted.getUpdate).toHaveBeenCalled();
   });
 });
