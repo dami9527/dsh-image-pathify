@@ -1,6 +1,6 @@
 /**
- * Wire contract for the `imagePathify` Remote: public settings (no full API
- * key) and the patch the settings page sends. Shared by the host Typert
+ * Wire contract for the `imagePathify` Remote: public settings (no API key
+ * literal) and the patch the settings page sends. Shared by the host Typert
  * manifest and the client `$mount` contribution.
  * @module dsh-image-pathify/contract
  */
@@ -10,6 +10,7 @@ import type {
   TypertSchema,
 } from "@deepseek-ai/dsh-typert-protocol";
 import {
+  DEFAULT_API_KEY_ENV,
   DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
@@ -22,12 +23,11 @@ export interface PathifyModelEntry {
 }
 
 /**
- * Settings the browser is allowed to see. `apiKey` is never returned in full;
- * `apiKeySet` / `apiKeyPreview` (last four characters) are the only secret face.
+ * Settings the browser is allowed to see. The key literal never rides this
+ * object; the client reads configured/writable from the credentials domain.
  */
 export interface ImagePathifyPublicSettings {
-  readonly apiKeySet: boolean;
-  readonly apiKeyPreview: string;
+  readonly apiKeyEnv: string;
   readonly visionModel: string;
   readonly visionBaseUrl: string;
   readonly prefix: string;
@@ -36,12 +36,11 @@ export interface ImagePathifyPublicSettings {
 }
 
 /**
- * One field patch from the settings page. An omitted or empty `apiKey` leaves
- * the stored secret unchanged; `clearApiKey` wipes it.
+ * One field patch from the settings page. The API key is not a field here —
+ * the card writes it through `credentials.set`.
  */
 export interface ImagePathifySettingsUpdate {
-  readonly apiKey?: string;
-  readonly clearApiKey?: boolean;
+  readonly apiKeyEnv?: string;
   readonly visionModel?: string;
   readonly visionBaseUrl?: string;
   readonly prefix?: string;
@@ -52,8 +51,7 @@ export interface ImagePathifySettingsUpdate {
 /** Schema defaults as the public wire shape (no secret). */
 export function defaultPublicSettings(): ImagePathifyPublicSettings {
   return {
-    apiKeySet: false,
-    apiKeyPreview: "",
+    apiKeyEnv: DEFAULT_API_KEY_ENV,
     visionModel: DEFAULT_VISION_MODEL,
     visionBaseUrl: DEFAULT_VISION_BASE_URL,
     prefix: DEFAULT_PREFIX,
@@ -97,8 +95,7 @@ export const publicSettingsSchema: TypertSchema<ImagePathifyPublicSettings> = {
     const modelsRaw = value.models;
     if (!Array.isArray(modelsRaw)) fail("models must be an array");
     return {
-      apiKeySet: readBoolean(value.apiKeySet, "apiKeySet"),
-      apiKeyPreview: readString(value.apiKeyPreview, "apiKeyPreview"),
+      apiKeyEnv: readString(value.apiKeyEnv, "apiKeyEnv"),
       visionModel: readString(value.visionModel, "visionModel"),
       visionBaseUrl: readString(value.visionBaseUrl, "visionBaseUrl"),
       prefix: readString(value.prefix, "prefix"),
@@ -113,12 +110,9 @@ export const settingsUpdateSchema: TypertSchema<ImagePathifySettingsUpdate> = {
   parse(value: unknown): ImagePathifySettingsUpdate {
     if (!isRecord(value)) fail("update must be an object");
     const update: ImagePathifySettingsUpdate = {
-      ...(value.apiKey === undefined
+      ...(value.apiKeyEnv === undefined
         ? {}
-        : { apiKey: readString(value.apiKey, "apiKey") }),
-      ...(value.clearApiKey === undefined
-        ? {}
-        : { clearApiKey: readBoolean(value.clearApiKey, "clearApiKey") }),
+        : { apiKeyEnv: readString(value.apiKeyEnv, "apiKeyEnv") }),
       ...(value.visionModel === undefined
         ? {}
         : { visionModel: readString(value.visionModel, "visionModel") }),

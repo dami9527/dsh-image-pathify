@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Context } from "@deepseek-ai/cordis";
 import type { Config } from "../src/config.ts";
 import {
+  DEFAULT_API_KEY_ENV,
   DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
@@ -28,7 +29,7 @@ function sample(overrides: Partial<Config> = {}): Config {
     prefix: DEFAULT_PREFIX,
     models: [],
     relaxAdmission: true,
-    apiKey: "",
+    apiKeyEnv: DEFAULT_API_KEY_ENV,
     visionModel: DEFAULT_VISION_MODEL,
     visionBaseUrl: DEFAULT_VISION_BASE_URL,
     ...overrides,
@@ -36,7 +37,7 @@ function sample(overrides: Partial<Config> = {}): Config {
 }
 
 describe("analyze_image live settings", () => {
-  it("picks up the API key after tools injects before settings", async () => {
+  it("picks up the API key after tools injects before credentials", async () => {
     const ctx = new Context();
     contexts.push(ctx);
 
@@ -61,9 +62,11 @@ describe("analyze_image live settings", () => {
       ),
     ).rejects.toThrow(/not configured/);
 
-    let resolveSettings: () => void = () => {};
-    const settingsReady = new Promise<void>((resolve) => {
-      resolveSettings = resolve;
+    ctx.provide("credentials", {
+      resolve: async (ref: string) =>
+        ref === DEFAULT_API_KEY_ENV
+          ? { value: "sk-test-key", source: "file" }
+          : undefined,
     });
     ctx.provide("settings", {
       register(
@@ -73,10 +76,8 @@ describe("analyze_image live settings", () => {
       ) {
         let value = sample({
           ...options?.base,
-          apiKey: "sk-test-key",
           visionModel: "qwen-vl-plus",
         });
-        resolveSettings();
         return {
           get: () => value,
           watch: () => () => {},
@@ -86,7 +87,6 @@ describe("analyze_image live settings", () => {
         };
       },
     });
-    await settingsReady;
 
     const fetchImpl = vi.fn(
       async () =>

@@ -1,7 +1,8 @@
 /**
- * The `image-pathify` settings namespace: vision API credentials plus the
- * pathify tunables edited from the Web settings page. Registered with
- * `{ applies: 'live' }` so a saved change takes effect without a restart.
+ * The `image-pathify` settings namespace: the vision credential *reference*
+ * plus the pathify tunables edited from the Web settings page. The key
+ * literal is not a field here. Registered with `{ applies: 'live' }` so a
+ * saved change takes effect without a restart.
  * @module dsh-image-pathify/settings
  */
 
@@ -15,19 +16,18 @@ import type {
   ImagePathifyPublicSettings,
   ImagePathifySettingsUpdate,
 } from "./contract.ts";
+import { credentialRefName } from "./credentials.ts";
 
 /** Branded namespace name (plugin-owned; not on the host Web allowlist). */
 export const IMAGE_PATHIFY_NAMESPACE = "image-pathify" as SettingsNamespace;
 
 /**
- * Project the stored section into the wire-safe public shape: the API key
- * never leaves the host as a full secret.
+ * Project the stored section into the wire-safe public shape. The key
+ * literal never leaves the host on this object.
  */
 export function toPublicSettings(value: Config): ImagePathifyPublicSettings {
-  const key = value.apiKey.trim();
   return {
-    apiKeySet: key.length > 0,
-    apiKeyPreview: key.length >= 4 ? key.slice(-4) : key,
+    apiKeyEnv: credentialRefName(value.apiKeyEnv),
     visionModel: value.visionModel,
     visionBaseUrl: value.visionBaseUrl,
     prefix: value.prefix,
@@ -40,18 +40,16 @@ export function toPublicSettings(value: Config): ImagePathifyPublicSettings {
 }
 
 /**
- * Apply one UI patch onto the owner scope. An omitted or empty `apiKey`
- * leaves the stored secret unchanged; `clearApiKey: true` wipes it.
+ * Apply one UI patch onto the owner scope. Secret literals are ignored —
+ * they belong to the credentials store.
  */
 export async function applySettingsUpdate(
   scope: SettingsScope<Config>,
   update: ImagePathifySettingsUpdate,
 ): Promise<ImagePathifyPublicSettings> {
   const patch: Partial<Config> = {};
-  if (update.clearApiKey === true) {
-    patch.apiKey = "";
-  } else if (update.apiKey !== undefined && update.apiKey.trim().length > 0) {
-    patch.apiKey = update.apiKey;
+  if (update.apiKeyEnv !== undefined) {
+    patch.apiKeyEnv = credentialRefName(update.apiKeyEnv);
   }
   if (update.visionModel !== undefined) patch.visionModel = update.visionModel;
   if (update.visionBaseUrl !== undefined) {

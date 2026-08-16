@@ -51,6 +51,7 @@ import { TYPERT_MANIFEST } from "./typert.ts";
 
 export { Config } from "./config.ts";
 export {
+  DEFAULT_API_KEY_ENV,
   DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,

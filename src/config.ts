@@ -6,6 +6,7 @@
 
 import z from "@deepseek-ai/schemastery";
 import {
+  DEFAULT_API_KEY_ENV,
   DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
@@ -27,8 +28,11 @@ export interface Config {
    * itself already relaxes those gates.
    */
   relaxAdmission: boolean;
-  /** Vision API bearer token. Empty until the user fills Settings → Plugins → Vision. */
-  apiKey: string;
+  /**
+   * Credential reference resolved for each vision call. The literal is stored
+   * by `ctx.credentials` (`$DSH_HOME/.credentials.yaml`), not in this section.
+   */
+  apiKeyEnv: string;
   /** Vision model id (default `qwen-vl-plus`). */
   visionModel: string;
   /** OpenAI-compatible vision base URL. */
@@ -57,8 +61,8 @@ export const Config = z.object({
    * itself already relaxes those gates.
    */
   relaxAdmission: z.boolean().default(true),
-  /** Vision API bearer token. Empty until the user fills Settings → Plugins → Vision. */
-  apiKey: z.string().role("secret").default(""),
+  /** Credential reference resolved for each vision call. */
+  apiKeyEnv: z.string().role("credential-ref").default(DEFAULT_API_KEY_ENV),
   /** Vision model id (default `qwen-vl-plus`). */
   visionModel: z.string().default(DEFAULT_VISION_MODEL),
   /** OpenAI-compatible vision base URL. */

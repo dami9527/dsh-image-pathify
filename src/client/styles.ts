@@ -72,6 +72,7 @@ export const cssText = `
 }
 .dsh_imagePathify_chevron {
   flex: none;
+  display: block;
   color: var(--dsw-alias-label-tertiary);
   transition: transform .16s;
 }

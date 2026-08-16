@@ -152,6 +152,7 @@ declare module "@deepseek-ai/dsh-client-runtime/client" {
     };
     remote: {
       $mount(contribution: unknown): Promise<() => void | Promise<void>>;
+      $on?(event: string, listener: (...args: never[]) => void): () => void;
     };
     slots: {
       inject(name: string, factory: () => unknown): unknown;
@@ -164,6 +165,31 @@ declare module "@deepseek-ai/dsh-client-runtime/client" {
 declare module "@deepseek-ai/dsh-client-locale/client" {}
 declare module "@deepseek-ai/dsh-client-ui-settings/client" {}
 declare module "@deepseek-ai/dsh-api-remotes/client" {}
+declare module "@deepseek-ai/dsh-client-connection/client" {
+  export interface CredentialView {
+    configured: boolean;
+    source?: string;
+    writable: boolean;
+  }
+  export interface IApiClient {
+    credentials: {
+      describe(payload: { refs: string[] }): Promise<{
+        result:
+          | {
+              ok: true;
+              value: { credentials: Record<string, CredentialView> };
+            }
+          | { ok: false; error: unknown };
+      }>;
+      set(payload: { ref: string; value: string }): Promise<{
+        result: { ok: true; value: object } | { ok: false; error: unknown };
+      }>;
+    };
+  }
+  export interface ConnectionHandle {
+    api: IApiClient;
+  }
+}
 declare module "@deepseek-ai/dsh-client-ui-slots" {
   export interface LocaleNamespaceMap {}
 }

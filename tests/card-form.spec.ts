@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { defaultPublicSettings } from "../src/contract.ts";
 import type { ImagePathifyPublicSettings } from "../src/contract.ts";
-import { ImagePathifyCardController } from "../src/client/card-form.ts";
-import { DEFAULT_PREFIX } from "../src/defaults.ts";
+import {
+  ImagePathifyCardController,
+  type VisionCredentialFace,
+} from "../src/client/card-form.ts";
+import { DEFAULT_API_KEY_ENV, DEFAULT_PREFIX } from "../src/defaults.ts";
 
 function sample(
   overrides: Partial<ImagePathifyPublicSettings> = {},
@@ -10,11 +13,31 @@ function sample(
   return { ...defaultPublicSettings(), ...overrides };
 }
 
+function credentialsStub(
+  initial = { configured: false, writable: true },
+): VisionCredentialFace & { store: Map<string, string> } {
+  const store = new Map<string, string>();
+  let configured = initial.configured;
+  return {
+    store,
+    describe: async () => ({ configured, writable: initial.writable }),
+    set: async (ref, value) => {
+      store.set(ref, value);
+      configured = value.length > 0;
+    },
+  };
+}
+
 describe("ImagePathifyCardController", () => {
-  it("is clean after receive and hides the card before that", () => {
-    const card = new ImagePathifyCardController(async () => sample());
+  it("is clean after receive and hides the card before that", async () => {
+    const credentials = credentialsStub({ configured: true, writable: true });
+    const card = new ImagePathifyCardController(
+      async () => sample(),
+      credentials,
+    );
     expect(card.snapshot.getSnapshot().available).toBe(false);
-    card.receive(sample({ apiKeySet: true, visionModel: "qwen-vl-max" }));
+    card.receive(sample({ visionModel: "qwen-vl-max" }));
+    await card.syncCredential();
     const state = card.snapshot.getSnapshot();
     expect(state.available).toBe(true);
     expect(state.dirty).toBe(false);
@@ -57,23 +80,22 @@ describe("ImagePathifyCardController", () => {
     expect(card.snapshot.getSnapshot().dirty).toBe(true);
   });
 
-  it("does not write a blank API key, and writes staged fields on save", async () => {
+  it("does not write a blank API key, and writes the staged key through credentials", async () => {
     const write = vi.fn(async (update) =>
       sample({
-        apiKeySet: update.apiKey !== undefined,
         visionModel: update.visionModel ?? sample().visionModel,
       }),
     );
-    const card = new ImagePathifyCardController(write);
+    const credentials = credentialsStub();
+    const card = new ImagePathifyCardController(write, credentials);
     card.receive(sample());
     const actions = card.inject();
     actions.edit("apiKey", "   ");
     expect(card.snapshot.getSnapshot().dirty).toBe(false);
     actions.edit("apiKey", "sk-test");
     await card.save();
-    expect(write).toHaveBeenCalledWith({
-      apiKey: "sk-test",
-    });
+    expect(write).not.toHaveBeenCalled();
+    expect(credentials.store.get(DEFAULT_API_KEY_ENV)).toBe("sk-test");
     expect(card.snapshot.getSnapshot().dirty).toBe(false);
     expect(card.snapshot.getSnapshot().apiKeyText).toBe("");
     expect(card.snapshot.getSnapshot().apiKeySet).toBe(true);

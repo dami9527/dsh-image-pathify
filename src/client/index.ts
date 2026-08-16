@@ -4,6 +4,10 @@
  * Components never see `ctx`.
  */
 import type {} from "@deepseek-ai/dsh-api-remotes/client";
+import type {
+  ConnectionHandle,
+  IApiClient,
+} from "@deepseek-ai/dsh-client-connection/client";
 import type { ClientContext } from "@deepseek-ai/dsh-client-runtime/client";
 import type {} from "@deepseek-ai/dsh-client-locale/client";
 import type {} from "@deepseek-ai/dsh-client-ui-settings/client";
@@ -11,7 +15,10 @@ import type {
   ImagePathifyPublicSettings,
   ImagePathifySettingsUpdate,
 } from "../contract.ts";
-import { ImagePathifyCardController } from "./card-form.ts";
+import {
+  ImagePathifyCardController,
+  type VisionCredentialFace,
+} from "./card-form.ts";
 import {
   ImagePathifyCard,
   type ImagePathifyCardInjected,
@@ -20,8 +27,8 @@ import { NS, en, zh } from "./locales.ts";
 import { IMAGE_PATHIFY_REMOTE } from "./remote.ts";
 import { adoptStyles } from "./styles.ts";
 
-/** Required services: slots, locale, and the Remote carrier. */
-export const inject = ["slots", "locale", "remote"];
+/** Required services: slots, locale, credentials wire, and the Remote carrier. */
+export const inject = ["slots", "locale", "connection", "remote"];
 
 /** The mounted imagePathify namespace service's callable face. */
 interface ImagePathifyNamespaceFace {
@@ -35,6 +42,32 @@ interface ImagePathifyNamespaceFace {
     | { ok: true; value: ImagePathifyPublicSettings }
     | { ok: false; error: { code: string; message: string; details: object } }
   >;
+}
+
+function credentialsFace(
+  api: IApiClient["credentials"] | undefined,
+): VisionCredentialFace {
+  return {
+    async describe(ref) {
+      if (api === undefined) return { configured: false, writable: true };
+      const response = await api.describe({ refs: [ref] });
+      if (!response.result.ok) return { configured: false, writable: true };
+      const view = response.result.value.credentials[ref];
+      return {
+        configured: view?.configured ?? false,
+        writable: view?.writable ?? true,
+      };
+    },
+    async set(ref, value) {
+      if (api === undefined) {
+        throw new Error("the credentials API is not available");
+      }
+      const response = await api.set({ ref, value });
+      if (!response.result.ok) {
+        throw new Error("credentials.set refused");
+      }
+    },
+  };
 }
 
 /**
@@ -106,7 +139,19 @@ export function apply(ctx: ClientContext): void {
     return operation;
   };
 
-  const card = new ImagePathifyCardController(updateSettings);
+  const connection = ctx.get("connection") as ConnectionHandle | undefined;
+  const card = new ImagePathifyCardController(
+    updateSettings,
+    credentialsFace(connection?.api.credentials),
+  );
+
+  ctx.effect(() => {
+    const onUpdated = ctx.remote.$on;
+    if (typeof onUpdated !== "function") return;
+    return onUpdated.call(ctx.remote, "credentials/updated", ((ref: string) => {
+      card.refreshCredential(ref);
+    }) as (...args: never[]) => void);
+  }, "dsh-image-pathify: credential invalidations");
 
   const loadSettings = async (): Promise<void> => {
     const handle = remote;

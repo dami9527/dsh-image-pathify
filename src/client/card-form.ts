@@ -1,5 +1,7 @@
 /**
  * Staged form behind the Vision plugin card. Edits stay local until save.
+ * The API key is a write-only control: it never rides a settings response
+ * and is stored through the credentials domain, not the settings document.
  * @module dsh-image-pathify/client/card-form
  */
 
@@ -10,6 +12,7 @@ import type {
 } from "../contract.ts";
 import { defaultPublicSettings } from "../contract.ts";
 import {
+  DEFAULT_API_KEY_ENV,
   DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
@@ -22,6 +25,18 @@ export interface CardFieldState {
   overridden: boolean;
 }
 
+/** Credentials-domain face the card uses for the referenced key. */
+export interface VisionCredentialFace {
+  describe(ref: string): Promise<{ configured: boolean; writable: boolean }>;
+  set(ref: string, value: string): Promise<void>;
+}
+
+/** Idle credentials face for tests that do not exercise the key control. */
+export const idleCredentials: VisionCredentialFace = {
+  describe: async () => ({ configured: false, writable: true }),
+  set: async () => {},
+};
+
 /** Form state every plugin card shares, plus Vision-specific controls. */
 export interface ImagePathifyCardState {
   available: boolean;
@@ -32,6 +47,7 @@ export interface ImagePathifyCardState {
   failed: boolean;
   apiKeyText: string;
   apiKeySet: boolean;
+  apiKeyWritable: boolean;
   visionModel: CardFieldState;
   visionBaseUrl: CardFieldState;
   prefix: CardFieldState;
@@ -79,6 +95,11 @@ function modelKey(entry: PathifyModelEntry): string {
   return `${entry.provider}\0${entry.model}`;
 }
 
+function refOf(settings: ImagePathifyPublicSettings): string {
+  const declared = settings.apiKeyEnv.trim();
+  return declared.length > 0 ? declared : DEFAULT_API_KEY_ENV;
+}
+
 /** Stages Vision settings over the plugin-owned Remote and writes them on save. */
 export class ImagePathifyCardController {
   private stored: ImagePathifyPublicSettings = defaultPublicSettings();
@@ -91,12 +112,14 @@ export class ImagePathifyCardController {
   private prefixDraft: string | undefined;
   private relaxDraft: boolean | undefined;
   private modelsDraft: PathifyModelEntry[] | undefined;
+  private credential = { ref: "", configured: false, writable: true };
   private readonly store: SnapshotStore<ImagePathifyCardState>;
 
   constructor(
     private readonly write: (
       update: ImagePathifySettingsUpdate,
     ) => Promise<ImagePathifyPublicSettings>,
+    private readonly credentials: VisionCredentialFace = idleCredentials,
   ) {
     this.store = createSnapshotStore(this.projection());
   }
@@ -111,11 +134,49 @@ export class ImagePathifyCardController {
     this.stored = settings;
     this.available = true;
     this.publish();
+    void this.syncCredential();
   }
 
   /** Hide the card while the Remote is down. */
   markUnavailable(): void {
     this.available = false;
+    this.publish();
+  }
+
+  /**
+   * Re-read whether the Host holds a key for the reference this card watches.
+   * @param ref - when set, ignore updates for a different reference.
+   */
+  refreshCredential(ref?: string): void {
+    if (ref !== undefined && ref !== this.credential.ref) return;
+    void this.syncCredential();
+  }
+
+  /** Ask the credentials domain about the reference the section currently names. */
+  async syncCredential(): Promise<void> {
+    const ref = refOf(this.stored);
+    if (ref !== this.credential.ref) {
+      this.credential = { ref, configured: false, writable: true };
+      this.publish();
+    }
+    let view: { configured: boolean; writable: boolean };
+    try {
+      view = await this.credentials.describe(ref);
+    } catch {
+      return;
+    }
+    if (ref !== refOf(this.stored)) return;
+    if (
+      view.configured === this.credential.configured &&
+      view.writable === this.credential.writable
+    ) {
+      return;
+    }
+    this.credential = {
+      ref,
+      configured: view.configured,
+      writable: view.writable,
+    };
     this.publish();
   }
 
@@ -165,7 +226,8 @@ export class ImagePathifyCardController {
       saving: this.saving,
       failed: this.failed,
       apiKeyText: this.apiKeyDraft ?? "",
-      apiKeySet: this.stored.apiKeySet,
+      apiKeySet: this.credential.configured,
+      apiKeyWritable: this.credential.writable,
       visionModel: {
         text: visionModel,
         overridden: resolvedModel !== DEFAULT_VISION_MODEL,
@@ -306,9 +368,8 @@ export class ImagePathifyCardController {
     this.publish();
   }
 
-  private plan(): ImagePathifySettingsUpdate | undefined {
+  private planSettings(): ImagePathifySettingsUpdate | undefined {
     const update: {
-      apiKey?: string;
       visionModel?: string;
       visionBaseUrl?: string;
       prefix?: string;
@@ -316,10 +377,6 @@ export class ImagePathifyCardController {
       models?: PathifyModelEntry[];
     } = {};
     let dirty = false;
-    if (this.apiKeyDraft !== undefined && this.apiKeyDraft.trim() !== "") {
-      update.apiKey = this.apiKeyDraft;
-      dirty = true;
-    }
     const visionModel = this.effectiveModel(
       this.visionModelDraft ?? this.stored.visionModel,
     );
@@ -353,26 +410,41 @@ export class ImagePathifyCardController {
   }
 
   async save(): Promise<void> {
-    const update = this.plan();
-    if (update === undefined || this.saving) return;
+    const key = this.apiKeyDraft?.trim() ?? "";
+    const update = this.planSettings();
+    if ((key.length === 0 && update === undefined) || this.saving) return;
     this.saving = true;
     this.failed = false;
     this.publish();
+    let landed = true;
     try {
-      const next = await this.write(update);
-      this.stored = next;
+      if (key.length > 0) {
+        try {
+          await this.credentials.set(refOf(this.stored), key);
+        } catch {
+          landed = false;
+        }
+        await this.syncCredential();
+        if (!this.credential.configured) landed = false;
+      }
+      if (update !== undefined) {
+        this.stored = await this.write(update);
+      }
+    } catch {
+      landed = false;
+    }
+    if (landed) {
       this.apiKeyDraft = undefined;
       this.visionModelDraft = undefined;
       this.visionBaseUrlDraft = undefined;
       this.prefixDraft = undefined;
       this.relaxDraft = undefined;
       this.modelsDraft = undefined;
-    } catch {
+    } else {
       this.failed = true;
-    } finally {
-      this.saving = false;
-      this.publish();
     }
+    this.saving = false;
+    this.publish();
   }
 
   private publish(): void {

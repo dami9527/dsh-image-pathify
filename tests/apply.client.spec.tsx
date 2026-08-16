@@ -15,6 +15,7 @@ import type {
   ImagePathifySettingsUpdate,
 } from "../src/contract.ts";
 import type { ImagePathifyCardState } from "../src/client/card-form.ts";
+import { DEFAULT_API_KEY_ENV } from "../src/defaults.ts";
 
 type RemoteResult<T> =
   | { ok: true; value: T }
@@ -49,9 +50,6 @@ async function boot(options: BootOptions = {}) {
       (async (update: ImagePathifySettingsUpdate) => {
         settings = {
           ...settings,
-          ...(update.apiKey !== undefined && update.apiKey.trim().length > 0
-            ? { apiKeySet: true, apiKeyPreview: update.apiKey.slice(-4) }
-            : {}),
           ...(update.visionModel !== undefined
             ? { visionModel: update.visionModel }
             : {}),
@@ -62,12 +60,40 @@ async function boot(options: BootOptions = {}) {
         return { ok: true as const, value: settings };
       }),
   );
-  ctx.provide("remote", { $mount: mount });
+  const credentials = new Map<string, string>();
+  const describeCredentials = vi.fn(async ({ refs }: { refs: string[] }) => ({
+    result: {
+      ok: true as const,
+      value: {
+        credentials: Object.fromEntries(
+          refs.map((ref) => [
+            ref,
+            {
+              configured: credentials.has(ref),
+              writable: true,
+            },
+          ]),
+        ),
+      },
+    },
+  }));
+  const setCredential = vi.fn(
+    async ({ ref, value }: { ref: string; value: string }) => {
+      credentials.set(ref, value);
+      return { result: { ok: true as const, value: {} } };
+    },
+  );
+  ctx.provide("remote", { $mount: mount, $on: vi.fn(() => () => {}) });
   if (options.withoutNamespace !== true) {
     ctx.provide("remote.imagePathify", { getSettings, updateSettings });
   }
   ctx.provide("slots", { inject: slotsInject, register: slotsRegister });
   ctx.provide("locale", { register: localeRegister, bind });
+  ctx.provide("connection", {
+    api: {
+      credentials: { describe: describeCredentials, set: setCredential },
+    },
+  });
   apply(ctx as never);
   await Promise.resolve();
   await Promise.resolve();
@@ -80,6 +106,8 @@ async function boot(options: BootOptions = {}) {
     slotsInject,
     getSettings,
     updateSettings,
+    describeCredentials,
+    setCredential,
   };
 }
 
@@ -107,8 +135,8 @@ function pluginCard(
 }
 
 describe("dsh-image-pathify client apply", () => {
-  it("declares slots, locale, and remote", () => {
-    expect(inject).toEqual(["slots", "locale", "remote"]);
+  it("declares slots, locale, connection, and remote", () => {
+    expect(inject).toEqual(["slots", "locale", "connection", "remote"]);
   });
 
   it("registers complete zh and en dictionaries", () => {
@@ -151,5 +179,22 @@ describe("dsh-image-pathify client apply", () => {
     expect(face.hooks.imagePathifyCard.getSnapshot().visionModel.text).toBe(
       "qwen-vl-max",
     );
+  });
+
+  it("writes a staged API key through credentials, not the settings Remote", async () => {
+    const booted = await boot();
+    const face = pluginCard(booted).inject();
+    face.edit("apiKey", "sk-test");
+    face.save();
+    await expect
+      .poll(() => booted.setCredential.mock.calls.length)
+      .toBeGreaterThan(0);
+    expect(booted.setCredential).toHaveBeenCalledWith({
+      ref: DEFAULT_API_KEY_ENV,
+      value: "sk-test",
+    });
+    expect(booted.updateSettings).not.toHaveBeenCalled();
+    expect(face.hooks.imagePathifyCard.getSnapshot().apiKeySet).toBe(true);
+    expect(face.hooks.imagePathifyCard.getSnapshot().apiKeyText).toBe("");
   });
 });

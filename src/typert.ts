@@ -19,7 +19,7 @@ export const TYPERT_MANIFEST: TypertContribution = {
         key: "imagePathify",
         exportName: "ImagePathifyRuntime",
         description:
-          "Plugin-owned settings for the vision API and image pathify tunables.",
+          "Plugin-owned settings for the vision API reference and image pathify tunables.",
         tags: [],
         members: [
           {

@@ -28,7 +28,7 @@ dsh web                              # 打开 Web 界面后生效
 
 打开 **设置 → 插件 → 识图**，填写后点保存：
 
-- API 密钥
+- API 密钥（写入 `$DSH_HOME/.credentials.yaml`，不进设置文件）
 - 识图模型（默认 `qwen-vl-plus`）
 - 识图 API 地址（默认阿里云 DashScope compatible-mode）
 
@@ -44,14 +44,14 @@ dsh web                              # 打开 Web 界面后生效
 
 设置页改动保存后立即生效。也可以写在 `$DSH_HOME/profiles/<name>/cordis.patch.yml`：
 
-| 选项             | 默认                                                | 做什么                                                                     |
-| ---------------- | --------------------------------------------------- | -------------------------------------------------------------------------- |
-| `apiKey`         | 空                                                  | 识图 API 密钥（只保存在本机）                                              |
-| `visionModel`    | `qwen-vl-plus`                                      | 识图模型 id                                                                |
-| `visionBaseUrl`  | `https://dashscope.aliyuncs.com/compatible-mode/v1` | OpenAI 兼容基址                                                            |
-| `prefix`         | `Saved attachments: `                               | 路径前面那句固定文字，通常无需修改                                         |
-| `models`         | 空 = 全部不能看图的模型                             | 只决定**哪些模型允许你发图**。空 = 都能发。填了就只放行名单里的模型        |
-| `relaxAdmission` | `true`                                              | 要不要帮你「允许给不能看图的模型发图」。dsh 自己已经允许的话，改成 `false` |
+| 选项             | 默认                                                | 做什么                                                               |
+| ---------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
+| `apiKeyEnv`      | `IMAGE_PATHIFY_API_KEY`                             | 凭据引用名。密钥本身写在 `$DSH_HOME/.credentials.yaml`，不进设置文件 |
+| `visionModel`    | `qwen-vl-plus`                                      | 识图模型 id                                                          |
+| `visionBaseUrl`  | `https://dashscope.aliyuncs.com/compatible-mode/v1` | OpenAI 兼容基址                                                      |
+| `prefix`         | `Saved attachments: `                               | 路径前面那句固定文字，通常无需修改                                   |
+| `models`         | 空 = 全部不能看图的模型                             | 只决定**哪些模型允许你发图**。空 = 都能发。填了就只放行名单里的模型  |
+| `relaxAdmission` | `true`                                              | 允许给不能看图的模型发图。关闭后按模型能力拒绝贴图                   |
 
 只允许 deepseek-v4-flash 发图的例子：
 

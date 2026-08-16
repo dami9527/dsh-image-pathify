@@ -8,6 +8,7 @@
 
 import type { Context } from "@deepseek-ai/cordis";
 import type { Config } from "./config.ts";
+import { resolveVisionApiKey } from "./credentials.ts";
 import { DEFAULT_VISION_MODEL } from "./defaults.ts";
 import { analyzeImage, DEFAULT_VISION_PROMPT } from "./vision.ts";
 
@@ -64,7 +65,7 @@ export function registerAnalyzeImageTool(
       }
       const settings = current();
       return analyzeImage({
-        apiKey: settings.apiKey,
+        apiKey: await resolveVisionApiKey(ctx, settings.apiKeyEnv),
         model: settings.visionModel.trim() || DEFAULT_VISION_MODEL,
         baseUrl: settings.visionBaseUrl,
         image,

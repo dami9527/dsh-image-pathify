@@ -19,6 +19,11 @@ declare module "@deepseek-ai/cordis" {
       ): SettingsScope<T>;
       get(ns: SettingsNamespace): SettingsScope<unknown> | undefined;
     };
+    credentials?: {
+      resolve(
+        ref: string,
+      ): Promise<{ value: string; source?: string } | undefined>;
+    };
     typert: {
       register(contribution: TypertContribution): () => void | Promise<void>;
     };

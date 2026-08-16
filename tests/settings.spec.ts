@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Context, symbols } from "@deepseek-ai/cordis";
 import {
+  DEFAULT_API_KEY_ENV,
   DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
@@ -8,11 +9,13 @@ import {
 import { defaultPublicSettings } from "../src/contract.ts";
 import { ImagePathifyRuntime } from "../src/runtime.ts";
 import { applySettingsUpdate, toPublicSettings } from "../src/settings.ts";
+import { credentialRefName, resolveVisionApiKey } from "../src/credentials.ts";
 import type { Config } from "../src/config.ts";
 
 const contexts: Context[] = [];
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(contexts.splice(0).map((ctx) => ctx.fiber.dispose()));
 });
 
@@ -27,7 +30,7 @@ function sample(overrides: Partial<Config> = {}): Config {
     prefix: DEFAULT_PREFIX,
     models: [],
     relaxAdmission: true,
-    apiKey: "",
+    apiKeyEnv: DEFAULT_API_KEY_ENV,
     visionModel: DEFAULT_VISION_MODEL,
     visionBaseUrl: DEFAULT_VISION_BASE_URL,
     ...overrides,
@@ -35,25 +38,17 @@ function sample(overrides: Partial<Config> = {}): Config {
 }
 
 describe("toPublicSettings", () => {
-  it("does not return the full API key", () => {
-    const publicSettings = toPublicSettings(
-      sample({ apiKey: "sk-abcdefghijklmnopqrstuvwxyz" }),
-    );
-    expect(publicSettings.apiKeySet).toBe(true);
-    expect(publicSettings.apiKeyPreview).toBe("wxyz");
-    expect(JSON.stringify(publicSettings)).not.toContain(
-      "sk-abcdefghijklmnopqrstuvwxyz",
-    );
-  });
-
-  it("marks an empty key as unset", () => {
-    expect(toPublicSettings(sample()).apiKeySet).toBe(false);
+  it("exposes the credential reference and never an apiKey field", () => {
+    const publicSettings = toPublicSettings(sample());
+    expect(publicSettings.apiKeyEnv).toBe(DEFAULT_API_KEY_ENV);
+    expect(publicSettings).not.toHaveProperty("apiKey");
+    expect(publicSettings).not.toHaveProperty("apiKeySet");
   });
 });
 
 describe("applySettingsUpdate", () => {
-  it("keeps the secret when apiKey is omitted or empty", async () => {
-    let stored = sample({ apiKey: "sk-keep" });
+  it("writes non-secret fields", async () => {
+    let stored = sample();
     const scope = {
       get: () => stored,
       watch: () => () => {},
@@ -61,25 +56,37 @@ describe("applySettingsUpdate", () => {
         stored = { ...stored, ...patch };
       },
     };
-    await applySettingsUpdate(scope, { apiKey: "" });
-    expect(stored.apiKey).toBe("sk-keep");
-    await applySettingsUpdate(scope, { visionModel: "qwen-vl-plus" });
-    expect(stored.apiKey).toBe("sk-keep");
-    expect(stored.visionModel).toBe("qwen-vl-plus");
+    await applySettingsUpdate(scope, { visionModel: "qwen-vl-max" });
+    expect(stored.visionModel).toBe("qwen-vl-max");
   });
+});
 
-  it("clears the secret when clearApiKey is set", async () => {
-    let stored = sample({ apiKey: "sk-keep" });
-    const scope = {
-      get: () => stored,
-      watch: () => () => {},
-      update: async (patch: Partial<Config>) => {
-        stored = { ...stored, ...patch };
-      },
-    };
-    const next = await applySettingsUpdate(scope, { clearApiKey: true });
-    expect(stored.apiKey).toBe("");
-    expect(next.apiKeySet).toBe(false);
+describe("credentialRefName", () => {
+  it("falls back to the default when the name is not a POSIX identifier", () => {
+    expect(credentialRefName("IMAGE_PATHIFY_API_KEY")).toBe(
+      "IMAGE_PATHIFY_API_KEY",
+    );
+    expect(credentialRefName(" not valid ")).toBe(DEFAULT_API_KEY_ENV);
+  });
+});
+
+describe("resolveVisionApiKey", () => {
+  it("reads credentials, then the environment", async () => {
+    const ctx = new Context();
+    contexts.push(ctx);
+    await expect(resolveVisionApiKey(ctx, DEFAULT_API_KEY_ENV)).resolves.toBe(
+      "",
+    );
+    vi.stubEnv(DEFAULT_API_KEY_ENV, "sk-env");
+    await expect(resolveVisionApiKey(ctx, DEFAULT_API_KEY_ENV)).resolves.toBe(
+      "sk-env",
+    );
+    ctx.provide("credentials", {
+      resolve: async () => ({ value: "sk-file", source: "file" }),
+    });
+    await expect(resolveVisionApiKey(ctx, DEFAULT_API_KEY_ENV)).resolves.toBe(
+      "sk-file",
+    );
   });
 });
 

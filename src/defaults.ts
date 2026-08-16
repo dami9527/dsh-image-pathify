@@ -13,3 +13,9 @@ export const DEFAULT_VISION_MODEL = "qwen-vl-plus";
 /** Default OpenAI-compatible vision endpoint (DashScope compatible-mode). */
 export const DEFAULT_VISION_BASE_URL =
   "https://dashscope.aliyuncs.com/compatible-mode/v1";
+
+/**
+ * Default credential reference for the vision API key. The literal lives in
+ * `$DSH_HOME/.credentials.yaml`, not in the settings document.
+ */
+export const DEFAULT_API_KEY_ENV = "IMAGE_PATHIFY_API_KEY";
