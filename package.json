@@ -1,7 +1,7 @@
 {
   "name": "dsh-image-pathify",
   "version": "0.1.0",
-  "description": "DeepSeek Harness plugin: let text-only models (deepseek-v4-flash, ...) receive image messages as 'Saved attachments: <path>' text at dispatch, so vision skills (claude-vision-skill's vision.js) can read the durable files",
+  "description": "DeepSeek Harness plugin: let text-only models receive pasted images, and analyze them with a built-in OpenAI-compatible vision tool",
   "license": "MIT",
   "author": "dami9527",
   "homepage": "https://github.com/dami9527/dsh-image-pathify#readme",
@@ -35,6 +35,10 @@
       "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -46,6 +50,14 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-locale"
+      ]
     }
   },
   "scripts": {
@@ -53,12 +65,14 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "pnpm run typecheck && pnpm run test && pnpm run build",
+    "prepare": "node build.mjs",
     "prepublishOnly": "pnpm build"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-llm": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-attachment": "^0.1.0-rc.6"
+    "@deepseek-ai/dsh-llm": ">=0.1.0-rc.6",
+    "@deepseek-ai/dsh-attachment": ">=0.1.0-rc.6",
+    "react": "^18.2.0 || ^19"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
@@ -69,6 +83,9 @@
     },
     "@deepseek-ai/dsh-attachment": {
       "optional": true
+    },
+    "react": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -78,7 +95,10 @@
     "@deepseek-ai/dsh-attachment": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-home-paths": "^0.1.0-rc.6",
     "@types/node": "^24.13.3",
+    "@types/react": "^18.2.0",
     "esbuild": "^0.28.2",
+    "jsdom": "^26.1.0",
+    "react": "^18.2.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }

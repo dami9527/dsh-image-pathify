@@ -1,10 +1,14 @@
 /**
- * Host-side ESM build for dsh-image-pathify (no client half).
+ * Host-side ESM build plus a single-file client bundle.
  *
  * `@deepseek-ai/dsh-*` and cordis stay external — the profile's healed
  * node_modules provides them, so classes and module state are not duplicated.
- * schemastery and dsh-home-paths are bundled (the Loader validates the
- * exported `Config` schema against its own schemastery instance).
+ * schemastery is bundled (the Loader validates the exported `Config` schema
+ * against its own schemastery instance).
+ *
+ * The web server serves exactly one file per client plugin
+ * (`/plugins/dsh-image-pathify/client.js`), so the client half is one CJS
+ * bundle wrapped in the ModuleLoader factory handshake.
  */
 import { build } from "esbuild";
 import { execFileSync } from "node:child_process";
@@ -26,7 +30,32 @@ await build({
   logLevel: "info",
 });
 
-// Declaration output for `types` consumers.
+await build({
+  entryPoints: ["src/client/index.ts"],
+  outfile: "lib/client.js",
+  bundle: true,
+  format: "cjs",
+  platform: "browser",
+  target: ["es2022"],
+  sourcemap: true,
+  jsx: "automatic",
+  external: [
+    ...dshExternal,
+    "react",
+    "react-dom",
+    "react/jsx-runtime",
+    "react/jsx-dev-runtime",
+    "scheduler",
+  ],
+  banner: {
+    js: "window.__ModuleLoader__.load({ id: 'dsh-image-pathify', factory: (require) => { var module = { exports: {} }; var exports = module.exports;",
+  },
+  footer: {
+    js: "return module.exports; } });",
+  },
+  logLevel: "info",
+});
+
 execFileSync("node_modules/.bin/tsc", ["-p", "tsconfig.build.json"], {
   stdio: "inherit",
 });

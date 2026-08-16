@@ -2,11 +2,11 @@
 #
 # Installed through the official CLI:
 #
-#   dsh plugin --profile <name> add ./dsh-image-pathify
+#   dsh plugin --profile <name> add dsh-image-pathify
 #
-# The profile boot merges this patch (a single `insert` of the plugin row)
-# exactly like a manual cordis.patch.yml mount line. The row's `name` is the
-# package name, so Node resolution finds the built lib/index.js entry.
+# The profile boot merges this patch (a single `insert` of the host plugin
+# row). The browser half is discovered from package.json `dsh.client` and
+# served as /plugins/dsh-image-pathify/client.js.
 - insert:
     - id: dsh-image-pathify
       name: dsh-image-pathify

@@ -1,6 +1,7 @@
 /**
  * dsh-image-pathify — let models without image input (deepseek-v4-flash, …)
- * receive image messages.
+ * receive image messages, and analyze those images through a built-in
+ * OpenAI-compatible vision tool (`analyze_image`).
  *
  * Two-layer split, installed entirely from this plugin:
  *
@@ -8,74 +9,73 @@
  *    thumbnails); nothing is rewritten at admission or at save time.
  * 2. Immediately before adapter dispatch, the `llm/stream` waterfall
  *    rewrites image blocks to `Saved attachments: <absolute path>` text
- *    blocks when the target model lacks the image input modality. A vision
- *    skill (claude-vision-skill's `vision.js`) then reads those files and
- *    turns them into image descriptions.
+ *    blocks when the target model lacks the image input modality.
+ *    `analyze_image` then reads those files through the configured vision
+ *    API. `read_image` is denied on non-vision routes so the model is
+ *    steered to `analyze_image` on the first attempt.
  *
  * Because the host's image admission preflights (`session.prompt`,
  * `session.selectModel`) have no plugin seam, this plugin also installs a
  * small, configurable shim on `ctx.llm.resolveModelInfo` so those gates
  * admit images for the configured text-only models (see {@link admission}).
+ *
+ * `llm` is required. `tools`, `systemPrompt`, `settings`, and `typert` are
+ * joined with nested `ctx.inject` so pathify still loads in a composition
+ * that has only the LLM seam (and so unit tests that stub only `llm` keep
+ * working). A web profile provides all of them.
  * @module dsh-image-pathify
  */
 
 import type { Context } from "@deepseek-ai/cordis";
-import z from "@deepseek-ai/schemastery";
 import type { AttachmentStore } from "@deepseek-ai/dsh-attachment";
 import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
 // Side-effect type import: merges the `llm/stream` event and `ctx.llm` into
 // the program so `ctx.on('llm/stream', …)` and `ctx.llm` type-check.
 import type {} from "@deepseek-ai/dsh-llm";
+import type {} from "@deepseek-ai/dsh-tools";
+import type {} from "@deepseek-ai/dsh-settings";
+import type {} from "@deepseek-ai/dsh-typert-registry";
+import type {} from "@deepseek-ai/dsh-system-prompt";
 import { installAdmissionShim } from "./admission.ts";
+import { Config, type Config as ConfigShape } from "./config.ts";
 import { messagesHaveImage, pathifyImages } from "./pathify.ts";
+import { installVisionPolicy, readImagePreExecute } from "./policy.ts";
+import { ImagePathifyRuntime } from "./runtime.ts";
+import {
+  applySettingsUpdate,
+  registerImagePathifySettings,
+  toPublicSettings,
+} from "./settings.ts";
+import { registerAnalyzeImageTool } from "./tool.ts";
+import { TYPERT_MANIFEST } from "./typert.ts";
+
+export { Config } from "./config.ts";
+export {
+  DEFAULT_PREFIX,
+  DEFAULT_VISION_BASE_URL,
+  DEFAULT_VISION_MODEL,
+} from "./defaults.ts";
+export { IMAGE_PATHIFY_NAMESPACE } from "./settings.ts";
+export { toPublicSettings } from "./settings.ts";
+export {
+  DEFAULT_VISION_PROMPT,
+  analyzeImage,
+  isRemoteImageUrl,
+} from "./vision.ts";
+export {
+  VISION_PROMPT_ORDER,
+  readImageDenyReason,
+  readImagePreExecute,
+  routeAcceptsImage,
+  routedModel,
+  visionPromptText,
+} from "./policy.ts";
 
 /** Cordis plugin name used by Loader diagnostics. */
 export const name = "dsh-image-pathify";
 
-/** Services whose seams this plugin joins. `attachments` is optional and read lazily. */
+/** `llm` is required for pathify. Other seams activate through nested inject. */
 export const inject = ["llm"];
-
-/** Tunables; invalid config fails at load. The interface names the schema's output shape. */
-export interface Config {
-  /** Text placed before each durable path in the rewritten text block. */
-  prefix: string;
-  /**
-   * Restrict host-admission relaxation to these exact provider/model pairs.
-   * Empty (default) relaxes every model whose declared input modalities
-   * exclude `image` while an attachment store is present.
-   */
-  models: readonly { provider: string; model: string }[];
-  /**
-   * Install the `ctx.llm.resolveModelInfo` shim that makes host image
-   * admission preflights admit text-only models. Disable when the harness
-   * itself already relaxes those gates.
-   */
-  relaxAdmission: boolean;
-}
-
-export const Config = z.object({
-  /** Text placed before each durable path in the rewritten text block. */
-  prefix: z.string().default("Saved attachments: "),
-  /**
-   * Restrict host-admission relaxation to these exact provider/model pairs.
-   * Empty (default) relaxes every model whose declared input modalities
-   * exclude `image` while an attachment store is present.
-   */
-  models: z
-    .array(
-      z.object({
-        provider: z.string(),
-        model: z.string(),
-      }),
-    )
-    .default([]),
-  /**
-   * Install the `ctx.llm.resolveModelInfo` shim that makes host image
-   * admission preflights admit text-only models. Disable when the harness
-   * itself already relaxes those gates.
-   */
-  relaxAdmission: z.boolean().default(true),
-});
 
 /**
  * True when the target model cannot carry image blocks. Unknown capabilities
@@ -152,15 +152,70 @@ function pathifyStream(
  * unregisters with the plugin's fiber, and the admission shim (when
  * installed) restores the original `resolveModelInfo` on disposal.
  */
-export function apply(ctx: Context, config: Config): void {
+export function apply(ctx: Context, config?: object): void {
+  const resolved: ConfigShape = Config((config ?? {}) as never) as ConfigShape;
+  let fromSettings: (() => ConfigShape) | undefined;
+  const current = (): ConfigShape => fromSettings?.() ?? resolved;
+
   ctx.on(
     "llm/stream",
     (options: GenerateOptions, next: () => AsyncIterable<StreamChunk>) => {
       if (!messagesHaveImage(options.messages)) return next();
-      return pathifyStream(ctx, options, next, config.prefix);
+      return pathifyStream(ctx, options, next, current().prefix);
     },
   );
-  if (config.relaxAdmission) {
-    ctx.effect(() => installAdmissionShim(ctx, { models: config.models }));
-  }
+
+  let disposeShim: (() => void) | undefined;
+  const syncAdmission = (): void => {
+    disposeShim?.();
+    disposeShim = undefined;
+    if (current().relaxAdmission) {
+      disposeShim = installAdmissionShim(ctx, { models: current().models });
+    }
+  };
+  ctx.effect(() => {
+    syncAdmission();
+    return () => {
+      disposeShim?.();
+      disposeShim = undefined;
+    };
+  });
+
+  ctx.inject(["settings"], (sctx: Context) => {
+    const scope = registerImagePathifySettings(sctx, Config, resolved);
+    fromSettings = () => scope.get();
+    syncAdmission();
+    scope.watch(() => {
+      syncAdmission();
+    });
+    sctx.effect(() => () => {
+      fromSettings = undefined;
+      syncAdmission();
+    });
+
+    sctx.inject(["typert"], (tctx: Context) => {
+      new ImagePathifyRuntime(
+        tctx,
+        () => toPublicSettings(scope.get()),
+        (update) => applySettingsUpdate(scope, update),
+      );
+      tctx.effect(() => {
+        const dispose = tctx.typert.register(TYPERT_MANIFEST);
+        return () => {
+          void dispose();
+        };
+      }, "dsh-image-pathify: typert manifest");
+    });
+  });
+
+  ctx.inject(["tools"], (tctx: Context) => {
+    registerAnalyzeImageTool(tctx, current);
+    tctx.on("tools/pre-execute", (exec, next) =>
+      readImagePreExecute(tctx, exec, next),
+    );
+  });
+
+  ctx.inject(["systemPrompt"], (pctx: Context) => {
+    installVisionPolicy(pctx, current);
+  });
 }

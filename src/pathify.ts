@@ -2,8 +2,8 @@
  * Dispatch-time image pathification: rewrite `image` content blocks to
  * `Saved attachments: <absolute path>` text blocks so a model without the
  * image input modality still receives the images it needs — a vision skill
- * (e.g. the claude-vision-skill `vision.js` helper) reads the durable file
- * and turns it into a text description.
+ * A vision tool (`analyze_image`) then reads those files and turns them
+ * into image descriptions.
  *
  * The durable session message is NEVER touched: the Web UI keeps rendering
  * thumbnails from the real image block; only the adapter-facing request is
