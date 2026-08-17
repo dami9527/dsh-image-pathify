@@ -19,7 +19,7 @@ afterEach(async () => {
 interface AnalyzeTool {
   name: string;
   execute(
-    args: { image?: string; prompt?: string },
+    args: { image?: unknown; images?: unknown; prompt?: string },
     exec: { signal: AbortSignal },
   ): Promise<unknown>;
 }
@@ -113,5 +113,82 @@ describe("analyze_image live settings", () => {
     expect(fetchCall![1]?.headers).toMatchObject({
       Authorization: "Bearer sk-test-key",
     });
+  });
+
+  it("analyzes several images in one call", async () => {
+    const ctx = new Context();
+    contexts.push(ctx);
+
+    let tool: AnalyzeTool | undefined;
+    ctx.provide("llm", {
+      resolveModelInfo: async () => ({ inputModalities: ["text"] }),
+    });
+    ctx.provide("tools", {
+      register(definition: AnalyzeTool) {
+        if (definition.name === "analyze_image") tool = definition;
+        return () => {};
+      },
+    });
+    ctx.provide("credentials", {
+      resolve: async (ref: string) =>
+        ref === DEFAULT_API_KEY_ENV
+          ? { value: "sk-test-key", source: "file" }
+          : undefined,
+    });
+    ctx.provide("settings", {
+      register(
+        _ns: unknown,
+        _schema: unknown,
+        options?: { base?: Partial<Config> },
+      ) {
+        const value = sample({
+          ...options?.base,
+          visionModel: "qwen-vl-plus",
+        });
+        return {
+          get: () => value,
+          watch: () => () => {},
+          update: async () => {},
+        };
+      },
+    });
+
+    await ctx.plugin(plugin, {});
+    expect(tool).toBeDefined();
+
+    const fetchImpl = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "ok" } }],
+        }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const text = await tool!.execute(
+      {
+        images: ["https://example.com/a.png", "https://example.com/b.png"],
+        prompt: "分别有什么?",
+      },
+      { signal: new AbortController().signal },
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(String(text)).toContain("Images in order:");
+    expect(String(text)).toContain("1. https://example.com/a.png");
+    expect(String(text)).toContain("2. https://example.com/b.png");
+    const fetchCall = fetchImpl.mock.calls[0] as unknown as
+      | [input: string, init?: RequestInit]
+      | undefined;
+    const body = JSON.parse(String(fetchCall![1]?.body)) as {
+      max_tokens: number;
+      messages: {
+        content: { type: string; image_url?: { url: string }; text?: string }[];
+      }[];
+    };
+    const parts = body.messages[0]?.content ?? [];
+    expect(parts.filter((part) => part.type === "image_url")).toHaveLength(2);
+    expect(parts.at(-1)?.text).toContain("以下共 2 张图片");
+    expect(body.max_tokens).toBe(4096);
   });
 });

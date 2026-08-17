@@ -14,6 +14,8 @@ describe("visionPromptText", () => {
     expect(text).toContain("PATH: ");
     expect(text).toContain("analyze_image");
     expect(text).toContain("read_image");
+    expect(text).toContain("images array");
+    expect(text).toContain("Do not call analyze_image once per image");
   });
 });
 

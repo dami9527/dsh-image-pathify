@@ -62,8 +62,12 @@ export { toPublicSettings } from "./settings.ts";
 export {
   DEFAULT_VISION_PROMPT,
   analyzeImage,
+  analyzeImages,
+  formatMultiImageResult,
   isRemoteImageUrl,
+  multiImagePrompt,
 } from "./vision.ts";
+export { collectImageSources } from "./tool.ts";
 export {
   VISION_PROMPT_ORDER,
   readImageDenyReason,

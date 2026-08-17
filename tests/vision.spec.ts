@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   analyzeImage,
+  analyzeImages,
+  formatMultiImageResult,
   isRemoteImageUrl,
+  multiImagePrompt,
   DEFAULT_VISION_PROMPT,
 } from "../src/vision.ts";
 
@@ -139,5 +142,120 @@ describe("analyzeImage", () => {
         },
       ),
     ).rejects.toThrow(/Vision API 401/);
+  });
+});
+
+describe("analyzeImages", () => {
+  it("posts every image in a single completion", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "图1 cat\n图2 dog\n图3 bird" } }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const text = await analyzeImages(
+      {
+        apiKey: "sk-test",
+        model: "qwen-vl-plus",
+        baseUrl: "https://example.com/v1",
+        images: [
+          "https://cdn.example/a.png",
+          "https://cdn.example/b.png",
+          "https://cdn.example/c.png",
+        ],
+        prompt: "分别有什么?",
+      },
+      {
+        fetch: fetchImpl as unknown as typeof fetch,
+        readFile: async () => {
+          throw new Error("should not read");
+        },
+      },
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const fetchCall = fetchImpl.mock.calls[0] as unknown as
+      | [input: string, init?: RequestInit]
+      | undefined;
+    const body = JSON.parse(String(fetchCall![1]?.body)) as {
+      max_tokens: number;
+      messages: {
+        content: { type: string; image_url?: { url: string }; text?: string }[];
+      }[];
+    };
+    expect(body.max_tokens).toBe(4096);
+    expect(body.messages[0]?.content).toEqual([
+      { type: "image_url", image_url: { url: "https://cdn.example/a.png" } },
+      { type: "image_url", image_url: { url: "https://cdn.example/b.png" } },
+      { type: "image_url", image_url: { url: "https://cdn.example/c.png" } },
+      { type: "text", text: multiImagePrompt(3, "分别有什么?") },
+    ]);
+    expect(text).toBe(
+      formatMultiImageResult(
+        [
+          "https://cdn.example/a.png",
+          "https://cdn.example/b.png",
+          "https://cdn.example/c.png",
+        ],
+        "图1 cat\n图2 dog\n图3 bird",
+      ),
+    );
+  });
+
+  it("falls back to a single-image request for one path", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "a cat" } }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const text = await analyzeImages(
+      {
+        apiKey: "sk-test",
+        model: "qwen-vl-plus",
+        baseUrl: "https://example.com/v1",
+        images: ["https://cdn.example/a.png"],
+        prompt: "what is this?",
+      },
+      {
+        fetch: fetchImpl as unknown as typeof fetch,
+        readFile: async () => new Uint8Array(),
+      },
+    );
+    expect(text).toBe("a cat");
+    const body = JSON.parse(
+      String(
+        (
+          fetchImpl.mock.calls[0] as unknown as [
+            input: string,
+            init?: RequestInit,
+          ]
+        )[1]?.body,
+      ),
+    ) as { max_tokens: number; messages: { content: unknown[] }[] };
+    expect(body.max_tokens).toBe(1024);
+    expect(body.messages[0]?.content).toHaveLength(2);
+  });
+});
+
+describe("multiImagePrompt", () => {
+  it("tells the vision model every image is attached", () => {
+    const text = multiImagePrompt(3, "分别有什么?");
+    expect(text).toContain("以下共 3 张图片");
+    expect(text).toContain("不要说只能看到一张图");
+    expect(text).toContain("分别有什么?");
+  });
+});
+
+describe("formatMultiImageResult", () => {
+  it("prefixes the reply with the attachment order", () => {
+    expect(
+      formatMultiImageResult(["/tmp/a.png", "/tmp/b.png"], "图1 cat"),
+    ).toBe("Images in order:\n1. /tmp/a.png\n2. /tmp/b.png\n\n图1 cat");
   });
 });

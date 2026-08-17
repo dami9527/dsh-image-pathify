@@ -1,8 +1,10 @@
 /**
  * OpenAI-compatible vision request: POST `{baseUrl}/chat/completions` with
- * one `image_url` part (a data URL for a local file, or an http(s) URL) and
- * a text prompt. Ported from claude-vision-skill's `vision.js` without the
- * clipboard fallback — pasted chat images already have a durable disk path.
+ * one or more `image_url` parts (a data URL for a local file, or an http(s)
+ * URL) and a text prompt. Several images share a single completion so the
+ * vision model actually sees every attachment. Ported from
+ * claude-vision-skill's `vision.js` without the clipboard fallback — pasted
+ * chat images already have a durable disk path.
  * @module dsh-image-pathify/vision
  */
 
@@ -37,6 +39,22 @@ export interface VisionRequest {
   /** Optional abort for the HTTP round-trip and file read. */
   signal?: AbortSignal;
 }
+
+/** Shared fields for a multi-image vision request. */
+export type VisionBatchRequest = Omit<VisionRequest, "image"> & {
+  /** Absolute local paths or `http(s)://` URLs, sent in one completion. */
+  images: readonly string[];
+};
+
+/** One OpenAI-compatible user-content part. */
+type VisionContentPart =
+  | { type: "image_url"; image_url: { url: string } }
+  | { type: "text"; text: string };
+
+/** Completion cap for a single image. */
+const SINGLE_MAX_TOKENS = 1024;
+/** Completion cap when several images share one request. */
+const MULTI_MAX_TOKENS = 4096;
 
 /** I/O seams tests replace. */
 export interface VisionIo {
@@ -82,6 +100,14 @@ async function imageUrlPart(
   return `data:image/${subtype};base64,${Buffer.from(data).toString("base64")}`;
 }
 
+function assertVisionConfigured(apiKey: string, model: string): void {
+  if (apiKey.trim().length === 0 || model.trim().length === 0) {
+    throw new Error(
+      "Vision API is not configured. Open Settings → Plugins → Vision and set the API key and model.",
+    );
+  }
+}
+
 function contentFromResponse(payload: unknown): string {
   if (typeof payload === "string") return payload;
   if (typeof payload !== "object" || payload === null) {
@@ -98,36 +124,57 @@ function contentFromResponse(payload: unknown): string {
 }
 
 /**
- * Call the configured vision model and return its text description.
- * @param request - endpoint, credentials, and image source.
- * @param io - optional file/HTTP seams (tests).
+ * Ask the vision model to describe every attached image by order number.
  */
-export async function analyzeImage(
-  request: VisionRequest,
-  io: VisionIo = defaultIo,
+export function multiImagePrompt(count: number, question: string): string {
+  return [
+    `以下共 ${String(count)} 张图片，已全部附上，按出现顺序编号为图1 到 图${String(count)}。`,
+    "请按编号分别详细描述每一张，不要说只能看到一张图。",
+    "",
+    question,
+  ].join("\n");
+}
+
+/**
+ * Prefix the vision reply with the attachment order so the calling model
+ * can map 图1 / 图2 back to file paths.
+ */
+export function formatMultiImageResult(
+  images: readonly string[],
+  description: string,
+): string {
+  const legend = images
+    .map((image, index) => `${String(index + 1)}. ${image}`)
+    .join("\n");
+  return `Images in order:\n${legend}\n\n${description}`;
+}
+
+async function completeVision(
+  request: VisionBatchRequest & { maxTokens: number },
+  io: VisionIo,
 ): Promise<string> {
   const apiKey = request.apiKey.trim();
   const model = request.model.trim();
-  if (apiKey.length === 0 || model.length === 0) {
-    throw new Error(
-      "Vision API is not configured. Open Settings → Plugins → Vision and set the API key and model.",
-    );
+  assertVisionConfigured(apiKey, model);
+  if (request.images.length === 0) {
+    throw new Error("image or images must include a non-empty path or URL");
   }
-  const imageUrl = await imageUrlPart(request.image, io, request.signal);
+  const imageUrls = await Promise.all(
+    request.images.map((image) => imageUrlPart(image, io, request.signal)),
+  );
   request.signal?.throwIfAborted();
+  const content: VisionContentPart[] = [
+    ...imageUrls.map((url) => ({
+      type: "image_url" as const,
+      image_url: { url },
+    })),
+    { type: "text", text: request.prompt },
+  ];
   const body = JSON.stringify({
     model,
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "image_url", image_url: { url: imageUrl } },
-          { type: "text", text: request.prompt },
-        ],
-      },
-    ],
+    messages: [{ role: "user", content }],
     stream: false,
-    max_tokens: 1024,
+    max_tokens: request.maxTokens,
   });
   const response = await io.fetch(completionsUrl(request.baseUrl), {
     method: "POST",
@@ -150,4 +197,52 @@ export async function analyzeImage(
     if (error instanceof SyntaxError) return text;
     throw error;
   }
+}
+
+/**
+ * Call the configured vision model and return its text description.
+ * @param request - endpoint, credentials, and image source.
+ * @param io - optional file/HTTP seams (tests).
+ */
+export async function analyzeImage(
+  request: VisionRequest,
+  io: VisionIo = defaultIo,
+): Promise<string> {
+  return completeVision(
+    {
+      apiKey: request.apiKey,
+      model: request.model,
+      baseUrl: request.baseUrl,
+      prompt: request.prompt,
+      signal: request.signal,
+      images: [request.image],
+      maxTokens: SINGLE_MAX_TOKENS,
+    },
+    io,
+  );
+}
+
+/**
+ * Send every image in one vision completion (multiple `image_url` parts).
+ * The returned text includes an order legend mapping 图N to each path.
+ */
+export async function analyzeImages(
+  request: VisionBatchRequest,
+  io: VisionIo = defaultIo,
+): Promise<string> {
+  if (request.images.length === 0) {
+    throw new Error("image or images must include a non-empty path or URL");
+  }
+  if (request.images.length === 1) {
+    return analyzeImage({ ...request, image: request.images[0]! }, io);
+  }
+  const text = await completeVision(
+    {
+      ...request,
+      prompt: multiImagePrompt(request.images.length, request.prompt),
+      maxTokens: MULTI_MAX_TOKENS,
+    },
+    io,
+  );
+  return formatMultiImageResult(request.images, text);
 }

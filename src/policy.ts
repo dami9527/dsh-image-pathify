@@ -32,6 +32,7 @@ export function visionPromptText(prefix: string): string {
   return [
     `When the user sends, pastes, or references an image, call analyze_image — never read_image — unless the current model declares image input.`,
     `Text that starts with "${shown}" is a saved image file. Strip that prefix and pass the remaining absolute path to analyze_image, with a question about the image.`,
+    `When several images appear in the same turn, pass every path in a single analyze_image call via the images array. Do not call analyze_image once per image.`,
     `analyze_image also accepts an http(s) image URL. If analyze_image fails because the vision API is not configured, tell the user to open Settings → Plugins → Vision and set the API key and model.`,
   ].join(" ");
 }

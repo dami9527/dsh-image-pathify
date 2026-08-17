@@ -9,7 +9,7 @@
            ↓
 发给不能看图的模型前  →  变成：Saved attachments: /某路径/某文件
            ↓
-模型调用 analyze_image  →  视觉 API 返回文字描述
+模型调用 analyze_image  →  视觉 API 返回文字描述（多张图一次请求、同一次看见全部）
 ```
 
 已经能看图的模型不受影响，图片会原样发给它们。`read_image` 在不能看图的模型上会被拒绝，并提示改用 `analyze_image`。
@@ -79,7 +79,13 @@ image-pathify:
       model: deepseek-v4-flash
 ```
 
-模型侧只多一个工具 `analyze_image`：`image` 填本地绝对路径或 `http(s)` 图片 URL（不要带路径前缀），`prompt` 可选。
+模型侧只多一个工具 `analyze_image`：
+
+- 一张图：`image` 填本地绝对路径或 `http(s)` 图片 URL（不要带路径前缀）
+- 多张图：用 `images` 一次传入全部路径，插件会在**同一次**视觉请求里带上所有图片，不必一张一张等
+- `prompt` 可选
+
+同一轮里有多张图时，系统提示会要求模型把所有路径放进一次 `analyze_image` 调用，而不是循环调用。
 
 ## 开发与构建
 
