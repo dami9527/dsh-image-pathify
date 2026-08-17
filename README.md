@@ -32,7 +32,7 @@ dsh web
 
 任何 OpenAI 兼容的视觉接口都可以，把地址和模型改成你的服务即可。设置页改动保存后立即生效，不用重启。
 
-设置 → 插件 → 识图
+![设置 → 插件 → 识图](access/settings.png)
 
 ## 更新
 
@@ -58,7 +58,7 @@ dsh plugin --profile web add dsh-image-pathify@version
 5. 给能看图的模型发一张图：模型直接回答，不调用 `analyze_image`
 6. 给能看图的模型发本地图片路径或图片URL：应直接调用 `read_image`，不要先 `analyze_image`
 
-给不能看图的模型发图，模型调用 analyze_image
+![给不能看图的模型发图，模型调用 analyze_image](access/example.png)
 
 ## 配置
 
