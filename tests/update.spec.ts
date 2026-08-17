@@ -22,9 +22,9 @@ describe("compareVersions", () => {
 });
 
 describe("upgradeCommand", () => {
-  it("copies the official CLI add-latest command for the web profile", () => {
-    expect(upgradeCommand("dsh-image-pathify")).toBe(
-      "dsh plugin --profile web add dsh-image-pathify@latest",
+  it("copies the official CLI add command pinned to the probed version", () => {
+    expect(upgradeCommand("dsh-image-pathify", "0.1.2")).toBe(
+      "dsh plugin --profile web add dsh-image-pathify@0.1.2",
     );
   });
 });
@@ -44,7 +44,7 @@ describe("checkPluginUpdate", () => {
       installedVersion: "0.1.0",
       latestVersion: "0.1.1",
       updateAvailable: true,
-      command: "dsh plugin --profile web add dsh-image-pathify@latest",
+      command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
@@ -78,6 +78,7 @@ describe("checkPluginUpdate", () => {
     expect(status).toMatchObject({
       latestVersion: "0.2.0",
       updateAvailable: true,
+      command: "dsh plugin --profile web add dsh-image-pathify@0.2.0",
     });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });

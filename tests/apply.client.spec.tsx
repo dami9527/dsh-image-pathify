@@ -70,7 +70,7 @@ async function boot(options: BootOptions = {}) {
           installedVersion: "0.1.1",
           latestVersion: "0.1.1",
           updateAvailable: false,
-          command: "dsh plugin --profile web add dsh-image-pathify@latest",
+          command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
         },
       })),
   );
@@ -225,7 +225,7 @@ describe("dsh-image-pathify client apply", () => {
           installedVersion: "0.1.0",
           latestVersion: "0.1.1",
           updateAvailable: true,
-          command: "dsh plugin --profile web add dsh-image-pathify@latest",
+          command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
         },
       }),
     });
@@ -238,7 +238,7 @@ describe("dsh-image-pathify client apply", () => {
       .toEqual({
         installedVersion: "0.1.0",
         latestVersion: "0.1.1",
-        command: "dsh plugin --profile web add dsh-image-pathify@latest",
+        command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
       });
     expect(booted.getUpdate).toHaveBeenCalled();
   });

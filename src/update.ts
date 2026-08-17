@@ -46,9 +46,9 @@ function readOwnPackage(): { name: string; version: string } {
   }
 }
 
-/** Build the CLI command the card copies. The Web UI lives on profile `web`. */
-export function upgradeCommand(packageName: string): string {
-  return `dsh plugin --profile web add ${packageName}@latest`;
+/** Build the CLI command the card copies. Pins the probed version, not `@latest`. */
+export function upgradeCommand(packageName: string, version: string): string {
+  return `dsh plugin --profile web add ${packageName}@${version}`;
 }
 
 /**
@@ -83,7 +83,7 @@ function idleStatus(
     installedVersion,
     latestVersion: installedVersion,
     updateAvailable: false,
-    command: upgradeCommand(packageName),
+    command: upgradeCommand(packageName, installedVersion),
   };
 }
 
@@ -132,6 +132,6 @@ export async function checkPluginUpdate(
     installedVersion,
     latestVersion,
     updateAvailable: compareVersions(installedVersion, latestVersion) < 0,
-    command: upgradeCommand(packageName),
+    command: upgradeCommand(packageName, latestVersion),
   };
 }

@@ -102,7 +102,7 @@ describe("ImagePathifyRuntime typertRemote", () => {
         installedVersion: "0.1.0",
         latestVersion: "0.1.0",
         updateAvailable: false,
-        command: "dsh plugin --profile web add dsh-image-pathify@latest",
+        command: "dsh plugin --profile web add dsh-image-pathify@0.1.0",
       }),
     );
     const runtime = ctx.get("imagePathify") as ImagePathifyRuntime | undefined;
@@ -125,7 +125,7 @@ describe("ImagePathifyRuntime typertRemote", () => {
       installedVersion: "0.1.0",
       latestVersion: "0.1.1",
       updateAvailable: true,
-      command: "dsh plugin --profile web add dsh-image-pathify@latest",
+      command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
     };
     new ImagePathifyRuntime(
       ctx,

@@ -36,13 +36,13 @@ dsh web
 
 ## 更新
 
-已装版本落后于 npm 最新版时，**识图**卡片 header（不用展开）会显示「发现新版本 x → y」和 **复制升级命令**。点按钮把命令复制到剪贴板，然后：
+已装版本落后于 npm 最新版时，**识图**卡片 header（不用展开）会显示「发现新版本 x → y」和 **复制升级命令**。点按钮把命令复制到剪贴板（钉死探测到的版本号，不要用 `@latest`），然后：
 
 1. 结束当前正在跑的 `dsh web`（终端里 `Ctrl+C`）
 2. 执行复制出来的命令：
 
 ```sh
-dsh plugin --profile web add dsh-image-pathify@latest
+dsh plugin --profile web add dsh-image-pathify@0.1.2
 ```
 
 3. 再启动 `dsh web`
