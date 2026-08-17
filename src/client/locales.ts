@@ -25,6 +25,12 @@ export const zh = {
   visionModelHint: "例如千问/智普/小米等能够识图的模型，留空则使用默认模型。",
   visionBaseUrl: "接口地址",
   visionBaseUrlHint: "任何 OpenAI 兼容格式 URL，留空则使用默认地址。",
+  singleMaxTokens: "单图输出上限",
+  singleMaxTokensHint:
+    "一张图时视觉模型最多能写多长。截图细节不够可调大，留空则使用默认值。",
+  multiMaxTokens: "多图输出上限",
+  multiMaxTokensHint:
+    "一次识别多张图时的输出上限。描述被截断可调大，留空则使用默认值。",
   prefix: "路径前缀",
   prefixHint: "写在本地路径前面，通常无需修改。",
   relaxAdmission: "允许给不能看图的模型发图",
@@ -70,6 +76,12 @@ export const en = {
   visionBaseUrl: "Endpoint",
   visionBaseUrlHint:
     "Any OpenAI-compatible URL. Leave blank to use the default.",
+  singleMaxTokens: "Single-image output cap",
+  singleMaxTokensHint:
+    "How long the vision model may write for one image. Raise this if screenshot details get cut off. Leave blank for the default.",
+  multiMaxTokens: "Multi-image output cap",
+  multiMaxTokensHint:
+    "Output cap when several images share one request. Raise this if descriptions are truncated. Leave blank for the default.",
   prefix: "Path prefix",
   prefixHint: "Text placed before each local path; Usually no need to change.",
   relaxAdmission: "Allow images on text-only models",

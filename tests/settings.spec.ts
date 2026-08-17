@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Context, symbols } from "@deepseek-ai/cordis";
 import {
   DEFAULT_API_KEY_ENV,
+  DEFAULT_MULTI_MAX_TOKENS,
   DEFAULT_PREFIX,
+  DEFAULT_SINGLE_MAX_TOKENS,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "../src/defaults.ts";
@@ -33,6 +35,8 @@ function sample(overrides: Partial<Config> = {}): Config {
     apiKeyEnv: DEFAULT_API_KEY_ENV,
     visionModel: DEFAULT_VISION_MODEL,
     visionBaseUrl: DEFAULT_VISION_BASE_URL,
+    singleMaxTokens: DEFAULT_SINGLE_MAX_TOKENS,
+    multiMaxTokens: DEFAULT_MULTI_MAX_TOKENS,
     ...overrides,
   };
 }
@@ -58,6 +62,8 @@ describe("applySettingsUpdate", () => {
     };
     await applySettingsUpdate(scope, { visionModel: "qwen-vl-max" });
     expect(stored.visionModel).toBe("qwen-vl-max");
+    await applySettingsUpdate(scope, { singleMaxTokens: 2048 });
+    expect(stored.singleMaxTokens).toBe(2048);
   });
 });
 

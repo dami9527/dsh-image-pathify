@@ -61,14 +61,16 @@ dsh plugin --profile web add dsh-image-pathify@0.1.2
 
 设置页保存后立即生效。识图字段写在 `$DSH_HOME/settings.yaml` 的 `image-pathify` 段；API 密钥写在 `$DSH_HOME/.credentials.yaml`，不进设置文件。
 
-| 选项             | 默认                                                | 做什么                                                               |
-| ---------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
-| `apiKeyEnv`      | `IMAGE_PATHIFY_API_KEY`                             | 凭据引用名。密钥本身写在 `$DSH_HOME/.credentials.yaml`，不进设置文件 |
-| `visionModel`    | `qwen-vl-plus`                                      | 识图模型 id                                                          |
-| `visionBaseUrl`  | `https://dashscope.aliyuncs.com/compatible-mode/v1` | OpenAI 兼容基址                                                      |
-| `prefix`         | `Saved attachments: `                               | 路径前面那句固定文字，通常无需修改                                   |
-| `models`         | 空 = 全部不能看图的模型                             | 只决定**哪些模型允许你发图**。空 = 都能发。填了就只放行名单里的模型  |
-| `relaxAdmission` | `true`                                              | 允许给不能看图的模型发图。关闭后按模型能力拒绝贴图                   |
+| 选项              | 默认                                                | 做什么                                                               |
+| ----------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
+| `apiKeyEnv`       | `IMAGE_PATHIFY_API_KEY`                             | 凭据引用名。密钥本身写在 `$DSH_HOME/.credentials.yaml`，不进设置文件 |
+| `visionModel`     | `qwen-vl-plus`                                      | 识图模型 id                                                          |
+| `visionBaseUrl`   | `https://dashscope.aliyuncs.com/compatible-mode/v1` | OpenAI 兼容基址                                                      |
+| `singleMaxTokens` | `1024`                                              | 一张图时视觉模型最多能写多长。截图细节不够可调大                     |
+| `multiMaxTokens`  | `4096`                                              | 一次识别多张图时的输出上限。描述被截断可调大                         |
+| `prefix`          | `Saved attachments: `                               | 路径前面那句固定文字，通常无需修改                                   |
+| `models`          | 空 = 全部不能看图的模型                             | 只决定**哪些模型允许你发图**。空 = 都能发。填了就只放行名单里的模型  |
+| `relaxAdmission`  | `true`                                              | 允许给不能看图的模型发图。关闭后按模型能力拒绝贴图                   |
 
 只允许 deepseek-v4-flash 发图的例子：
 

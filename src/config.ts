@@ -7,9 +7,13 @@
 import z from "@deepseek-ai/schemastery";
 import {
   DEFAULT_API_KEY_ENV,
+  DEFAULT_MULTI_MAX_TOKENS,
   DEFAULT_PREFIX,
+  DEFAULT_SINGLE_MAX_TOKENS,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
+  MAX_VISION_MAX_TOKENS,
+  MIN_VISION_MAX_TOKENS,
 } from "./defaults.ts";
 
 /** Tunables; invalid config fails at load. The interface names the schema's output shape. */
@@ -37,6 +41,10 @@ export interface Config {
   visionModel: string;
   /** OpenAI-compatible vision base URL. */
   visionBaseUrl: string;
+  /** `max_tokens` for a single-image vision completion. */
+  singleMaxTokens: number;
+  /** `max_tokens` when several images share one completion. */
+  multiMaxTokens: number;
 }
 
 export const Config = z.object({
@@ -67,4 +75,18 @@ export const Config = z.object({
   visionModel: z.string().default(DEFAULT_VISION_MODEL),
   /** OpenAI-compatible vision base URL. */
   visionBaseUrl: z.string().default(DEFAULT_VISION_BASE_URL),
+  /** `max_tokens` for a single-image vision completion. */
+  singleMaxTokens: z
+    .number()
+    .min(MIN_VISION_MAX_TOKENS)
+    .max(MAX_VISION_MAX_TOKENS)
+    .step(1)
+    .default(DEFAULT_SINGLE_MAX_TOKENS),
+  /** `max_tokens` when several images share one completion. */
+  multiMaxTokens: z
+    .number()
+    .min(MIN_VISION_MAX_TOKENS)
+    .max(MAX_VISION_MAX_TOKENS)
+    .step(1)
+    .default(DEFAULT_MULTI_MAX_TOKENS),
 });

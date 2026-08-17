@@ -241,6 +241,43 @@ describe("analyzeImages", () => {
     expect(body.max_tokens).toBe(1024);
     expect(body.messages[0]?.content).toHaveLength(2);
   });
+
+  it("honors a maxTokens override", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "ok" } }],
+          }),
+          { status: 200 },
+        ),
+    );
+    await analyzeImage(
+      {
+        apiKey: "sk-test",
+        model: "qwen-vl-plus",
+        baseUrl: "https://example.com/v1",
+        image: "https://cdn.example/a.png",
+        prompt: "x",
+        maxTokens: 2048,
+      },
+      {
+        fetch: fetchImpl as unknown as typeof fetch,
+        readFile: async () => new Uint8Array(),
+      },
+    );
+    const body = JSON.parse(
+      String(
+        (
+          fetchImpl.mock.calls[0] as unknown as [
+            input: string,
+            init?: RequestInit,
+          ]
+        )[1]?.body,
+      ),
+    ) as { max_tokens: number };
+    expect(body.max_tokens).toBe(2048);
+  });
 });
 
 describe("multiImagePrompt", () => {

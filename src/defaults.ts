@@ -19,3 +19,15 @@ export const DEFAULT_VISION_BASE_URL =
  * `$DSH_HOME/.credentials.yaml`, not in the settings document.
  */
 export const DEFAULT_API_KEY_ENV = "IMAGE_PATHIFY_API_KEY";
+
+/** Default `max_tokens` for a single-image vision completion. */
+export const DEFAULT_SINGLE_MAX_TOKENS = 1024;
+
+/** Default `max_tokens` when several images share one completion. */
+export const DEFAULT_MULTI_MAX_TOKENS = 4096;
+
+/** Inclusive lower bound for the vision output cap. */
+export const MIN_VISION_MAX_TOKENS = 1;
+
+/** Inclusive upper bound for the vision output cap. */
+export const MAX_VISION_MAX_TOKENS = 32768;

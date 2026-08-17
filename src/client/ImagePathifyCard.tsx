@@ -360,6 +360,70 @@ export function ImagePathifyCard({
             <div className="dsh_imagePathify_fieldHead">
               <label
                 className="dsh_imagePathify_label"
+                htmlFor="plugin-config-image-pathify-single-max-tokens"
+              >
+                {t("singleMaxTokens")}
+              </label>
+              <OverrideBadges
+                overridden={state.singleMaxTokens.overridden}
+                disabled={disabled}
+                overriddenLabel={t("overridden")}
+                resetLabel={t("reset")}
+                onReset={() => {
+                  resetField("singleMaxTokens");
+                }}
+              />
+            </div>
+            <input
+              id="plugin-config-image-pathify-single-max-tokens"
+              className="dsh_imagePathify_input"
+              inputMode="numeric"
+              spellCheck={false}
+              value={state.singleMaxTokens.text}
+              disabled={disabled}
+              onChange={(event) => {
+                edit("singleMaxTokens", event.target.value);
+              }}
+            />
+            <p className="dsh_imagePathify_hint">{t("singleMaxTokensHint")}</p>
+          </div>
+
+          <div className="dsh_imagePathify_field">
+            <div className="dsh_imagePathify_fieldHead">
+              <label
+                className="dsh_imagePathify_label"
+                htmlFor="plugin-config-image-pathify-multi-max-tokens"
+              >
+                {t("multiMaxTokens")}
+              </label>
+              <OverrideBadges
+                overridden={state.multiMaxTokens.overridden}
+                disabled={disabled}
+                overriddenLabel={t("overridden")}
+                resetLabel={t("reset")}
+                onReset={() => {
+                  resetField("multiMaxTokens");
+                }}
+              />
+            </div>
+            <input
+              id="plugin-config-image-pathify-multi-max-tokens"
+              className="dsh_imagePathify_input"
+              inputMode="numeric"
+              spellCheck={false}
+              value={state.multiMaxTokens.text}
+              disabled={disabled}
+              onChange={(event) => {
+                edit("multiMaxTokens", event.target.value);
+              }}
+            />
+            <p className="dsh_imagePathify_hint">{t("multiMaxTokensHint")}</p>
+          </div>
+
+          <div className="dsh_imagePathify_field">
+            <div className="dsh_imagePathify_fieldHead">
+              <label
+                className="dsh_imagePathify_label"
                 htmlFor="plugin-config-image-pathify-prefix"
               >
                 {t("prefix")}

@@ -53,7 +53,9 @@ import { checkPluginUpdate } from "./update.ts";
 export { Config } from "./config.ts";
 export {
   DEFAULT_API_KEY_ENV,
+  DEFAULT_MULTI_MAX_TOKENS,
   DEFAULT_PREFIX,
+  DEFAULT_SINGLE_MAX_TOKENS,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "./defaults.ts";
