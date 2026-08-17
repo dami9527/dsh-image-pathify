@@ -164,6 +164,7 @@ declare module "@deepseek-ai/dsh-client-runtime/client" {
 
 declare module "@deepseek-ai/dsh-client-locale/client" {}
 declare module "@deepseek-ai/dsh-client-ui-settings/client" {}
+declare module "@deepseek-ai/dsh-client-ui-settings-plugins/client" {}
 declare module "@deepseek-ai/dsh-api-remotes/client" {}
 declare module "@deepseek-ai/dsh-client-connection/client" {
   export interface CredentialView {

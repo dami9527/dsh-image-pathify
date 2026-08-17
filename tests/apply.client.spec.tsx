@@ -131,6 +131,7 @@ async function boot(options: BootOptions = {}) {
 }
 
 interface RegisteredPluginCard {
+  key: string;
   id: string;
   order: number;
   locale: string;
@@ -173,7 +174,8 @@ describe("dsh-image-pathify client apply", () => {
       expect.any(Function),
     );
     const card = pluginCard(booted);
-    expect(card.id).toBe("image-pathify");
+    expect(card.key).toBe(NS);
+    expect(card.id).toBe(NS);
     expect(card.order).toBe(30);
     expect(card.locale).toBe(NS);
     expect(booted.getSettings).toHaveBeenCalled();

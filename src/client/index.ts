@@ -11,6 +11,8 @@ import type {
 import type { ClientContext } from "@deepseek-ai/dsh-client-runtime/client";
 import type {} from "@deepseek-ai/dsh-client-locale/client";
 import type {} from "@deepseek-ai/dsh-client-ui-settings/client";
+// Type-only: the keyed `settings.plugin.item` slot declaration.
+import type {} from "@deepseek-ai/dsh-client-ui-settings-plugins/client";
 import type {
   ImagePathifyPublicSettings,
   ImagePathifySettingsUpdate,
@@ -217,11 +219,14 @@ export function apply(ctx: ClientContext): void {
     void loadUpdate();
   });
 
+  // rc.5/rc.6 declare a list slot (id/order); rc.7+ is keyed on the
+  // settings namespace. Extra fields are ignored by the other kind.
   ctx.slots.inject("settings.plugin.item", () =>
     ctx.slots.register(
       {
         name: "settings.plugin.item",
-        id: "image-pathify",
+        key: NS,
+        id: NS,
         order: 30,
         locale: NS,
         inject: (): ImagePathifyCardInjected => card.inject(),
