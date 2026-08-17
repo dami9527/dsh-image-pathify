@@ -10,6 +10,10 @@
 
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
+import {
+  DEFAULT_MULTI_MAX_TOKENS,
+  DEFAULT_SINGLE_MAX_TOKENS,
+} from "./defaults.ts";
 
 /** Default question when the model omits `prompt`. */
 export const DEFAULT_VISION_PROMPT = "请详细描述这张图片的内容。";
@@ -38,6 +42,8 @@ export interface VisionRequest {
   prompt: string;
   /** Optional abort for the HTTP round-trip and file read. */
   signal?: AbortSignal;
+  /** Optional `max_tokens` override for this completion. */
+  maxTokens?: number;
 }
 
 /** Shared fields for a multi-image vision request. */
@@ -50,11 +56,6 @@ export type VisionBatchRequest = Omit<VisionRequest, "image"> & {
 type VisionContentPart =
   | { type: "image_url"; image_url: { url: string } }
   | { type: "text"; text: string };
-
-/** Completion cap for a single image. */
-const SINGLE_MAX_TOKENS = 1024;
-/** Completion cap when several images share one request. */
-const MULTI_MAX_TOKENS = 4096;
 
 /** I/O seams tests replace. */
 export interface VisionIo {
@@ -216,7 +217,7 @@ export async function analyzeImage(
       prompt: request.prompt,
       signal: request.signal,
       images: [request.image],
-      maxTokens: SINGLE_MAX_TOKENS,
+      maxTokens: request.maxTokens ?? DEFAULT_SINGLE_MAX_TOKENS,
     },
     io,
   );
@@ -240,7 +241,7 @@ export async function analyzeImages(
     {
       ...request,
       prompt: multiImagePrompt(request.images.length, request.prompt),
-      maxTokens: MULTI_MAX_TOKENS,
+      maxTokens: request.maxTokens ?? DEFAULT_MULTI_MAX_TOKENS,
     },
     io,
   );

@@ -30,6 +30,8 @@ export function toPublicSettings(value: Config): ImagePathifyPublicSettings {
     apiKeyEnv: credentialRefName(value.apiKeyEnv),
     visionModel: value.visionModel,
     visionBaseUrl: value.visionBaseUrl,
+    singleMaxTokens: value.singleMaxTokens,
+    multiMaxTokens: value.multiMaxTokens,
     models: value.models.map((entry) => ({
       provider: entry.provider,
       model: entry.model,
@@ -53,6 +55,12 @@ export async function applySettingsUpdate(
   if (update.visionModel !== undefined) patch.visionModel = update.visionModel;
   if (update.visionBaseUrl !== undefined) {
     patch.visionBaseUrl = update.visionBaseUrl;
+  }
+  if (update.singleMaxTokens !== undefined) {
+    patch.singleMaxTokens = update.singleMaxTokens;
+  }
+  if (update.multiMaxTokens !== undefined) {
+    patch.multiMaxTokens = update.multiMaxTokens;
   }
   if (update.models !== undefined) {
     patch.models = update.models

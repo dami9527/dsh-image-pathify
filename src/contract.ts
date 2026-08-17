@@ -11,8 +11,12 @@ import type {
 } from "@deepseek-ai/dsh-typert-protocol";
 import {
   DEFAULT_API_KEY_ENV,
+  DEFAULT_MULTI_MAX_TOKENS,
+  DEFAULT_SINGLE_MAX_TOKENS,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
+  MAX_VISION_MAX_TOKENS,
+  MIN_VISION_MAX_TOKENS,
 } from "./defaults.ts";
 
 /** One provider/model pair the admission shim may relax. */
@@ -29,6 +33,8 @@ export interface ImagePathifyPublicSettings {
   readonly apiKeyEnv: string;
   readonly visionModel: string;
   readonly visionBaseUrl: string;
+  readonly singleMaxTokens: number;
+  readonly multiMaxTokens: number;
   readonly models: readonly PathifyModelEntry[];
   readonly relaxAdmission: boolean;
 }
@@ -53,6 +59,8 @@ export interface ImagePathifySettingsUpdate {
   readonly apiKeyEnv?: string;
   readonly visionModel?: string;
   readonly visionBaseUrl?: string;
+  readonly singleMaxTokens?: number;
+  readonly multiMaxTokens?: number;
   readonly models?: readonly PathifyModelEntry[];
   readonly relaxAdmission?: boolean;
 }
@@ -63,6 +71,8 @@ export function defaultPublicSettings(): ImagePathifyPublicSettings {
     apiKeyEnv: DEFAULT_API_KEY_ENV,
     visionModel: DEFAULT_VISION_MODEL,
     visionBaseUrl: DEFAULT_VISION_BASE_URL,
+    singleMaxTokens: DEFAULT_SINGLE_MAX_TOKENS,
+    multiMaxTokens: DEFAULT_MULTI_MAX_TOKENS,
     models: [],
     relaxAdmission: true,
   };
@@ -86,6 +96,18 @@ function readBoolean(value: unknown, field: string): boolean {
     : fail(`${field} must be a boolean`);
 }
 
+function readMaxTokens(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    fail(`${field} must be an integer`);
+  }
+  if (value < MIN_VISION_MAX_TOKENS || value > MAX_VISION_MAX_TOKENS) {
+    fail(
+      `${field} must be between ${String(MIN_VISION_MAX_TOKENS)} and ${String(MAX_VISION_MAX_TOKENS)}`,
+    );
+  }
+  return value;
+}
+
 function readModel(value: unknown): PathifyModelEntry {
   if (!isRecord(value)) fail("models[] must be an object");
   const provider = readString(value.provider, "models[].provider").trim();
@@ -106,6 +128,8 @@ export const publicSettingsSchema: TypertSchema<ImagePathifyPublicSettings> = {
       apiKeyEnv: readString(value.apiKeyEnv, "apiKeyEnv"),
       visionModel: readString(value.visionModel, "visionModel"),
       visionBaseUrl: readString(value.visionBaseUrl, "visionBaseUrl"),
+      singleMaxTokens: readMaxTokens(value.singleMaxTokens, "singleMaxTokens"),
+      multiMaxTokens: readMaxTokens(value.multiMaxTokens, "multiMaxTokens"),
       models: modelsRaw.map(readModel),
       relaxAdmission: readBoolean(value.relaxAdmission, "relaxAdmission"),
     };
@@ -139,6 +163,22 @@ export const settingsUpdateSchema: TypertSchema<ImagePathifySettingsUpdate> = {
       ...(value.visionBaseUrl === undefined
         ? {}
         : { visionBaseUrl: readString(value.visionBaseUrl, "visionBaseUrl") }),
+      ...(value.singleMaxTokens === undefined
+        ? {}
+        : {
+            singleMaxTokens: readMaxTokens(
+              value.singleMaxTokens,
+              "singleMaxTokens",
+            ),
+          }),
+      ...(value.multiMaxTokens === undefined
+        ? {}
+        : {
+            multiMaxTokens: readMaxTokens(
+              value.multiMaxTokens,
+              "multiMaxTokens",
+            ),
+          }),
       ...(value.models === undefined
         ? {}
         : {

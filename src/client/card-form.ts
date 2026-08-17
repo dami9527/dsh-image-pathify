@@ -14,8 +14,11 @@ import type {
 import { defaultPublicSettings } from "../contract.ts";
 import {
   DEFAULT_API_KEY_ENV,
+  DEFAULT_MULTI_MAX_TOKENS,
+  DEFAULT_SINGLE_MAX_TOKENS,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
+  MAX_VISION_MAX_TOKENS,
 } from "../defaults.ts";
 import { createSnapshotStore, type SnapshotStore } from "./store.ts";
 
@@ -50,6 +53,8 @@ export interface ImagePathifyCardState {
   apiKeyWritable: boolean;
   visionModel: CardFieldState;
   visionBaseUrl: CardFieldState;
+  singleMaxTokens: CardFieldState;
+  multiMaxTokens: CardFieldState;
   relaxAdmission: { checked: boolean; overridden: boolean };
   models: { entries: readonly PathifyModelEntry[]; overridden: boolean };
   update:
@@ -106,6 +111,22 @@ function refOf(settings: ImagePathifyPublicSettings): string {
   return declared.length > 0 ? declared : DEFAULT_API_KEY_ENV;
 }
 
+/**
+ * Parse a max-tokens field. Empty uses `fallback`. Non-integers and values
+ * outside 1…32768 are invalid (`undefined`).
+ */
+export function parseMaxTokens(
+  text: string,
+  fallback: number,
+): number | undefined {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return fallback;
+  if (!/^[1-9]\d*$/.test(trimmed)) return undefined;
+  const n = Number(trimmed);
+  if (n > MAX_VISION_MAX_TOKENS) return undefined;
+  return n;
+}
+
 /** Stages Vision settings over the plugin-owned Remote and writes them on save. */
 export class ImagePathifyCardController {
   private stored: ImagePathifyPublicSettings = defaultPublicSettings();
@@ -115,6 +136,8 @@ export class ImagePathifyCardController {
   private apiKeyDraft: string | undefined;
   private visionModelDraft: string | undefined;
   private visionBaseUrlDraft: string | undefined;
+  private singleMaxTokensDraft: string | undefined;
+  private multiMaxTokensDraft: string | undefined;
   private relaxDraft: boolean | undefined;
   private modelsDraft: PathifyModelEntry[] | undefined;
   private credential = { ref: "", configured: false, writable: true };
@@ -245,15 +268,27 @@ export class ImagePathifyCardController {
   private projection(): ImagePathifyCardState {
     const visionModel = this.visionModelDraft ?? this.stored.visionModel;
     const visionBaseUrl = this.visionBaseUrlDraft ?? this.stored.visionBaseUrl;
+    const singleMaxTokensText =
+      this.singleMaxTokensDraft ?? String(this.stored.singleMaxTokens);
+    const multiMaxTokensText =
+      this.multiMaxTokensDraft ?? String(this.stored.multiMaxTokens);
     const relax = this.relaxDraft ?? this.stored.relaxAdmission;
     const models = this.modelsDraft ?? this.stored.models;
     const resolvedModel = this.effectiveModel(visionModel);
     const resolvedUrl = this.effectiveUrl(visionBaseUrl);
+    const resolvedSingle = parseMaxTokens(
+      singleMaxTokensText,
+      DEFAULT_SINGLE_MAX_TOKENS,
+    );
+    const resolvedMulti = parseMaxTokens(
+      multiMaxTokensText,
+      DEFAULT_MULTI_MAX_TOKENS,
+    );
     return {
       available: this.available,
       writable: true,
       dirty: this.isDirty(),
-      invalid: false,
+      invalid: resolvedSingle === undefined || resolvedMulti === undefined,
       saving: this.saving,
       failed: this.failed,
       apiKeyText: this.apiKeyDraft ?? "",
@@ -266,6 +301,18 @@ export class ImagePathifyCardController {
       visionBaseUrl: {
         text: visionBaseUrl,
         overridden: resolvedUrl !== DEFAULT_VISION_BASE_URL,
+      },
+      singleMaxTokens: {
+        text: singleMaxTokensText,
+        overridden:
+          resolvedSingle !== undefined &&
+          resolvedSingle !== DEFAULT_SINGLE_MAX_TOKENS,
+      },
+      multiMaxTokens: {
+        text: multiMaxTokensText,
+        overridden:
+          resolvedMulti !== undefined &&
+          resolvedMulti !== DEFAULT_MULTI_MAX_TOKENS,
       },
       relaxAdmission: {
         checked: relax,
@@ -297,6 +344,8 @@ export class ImagePathifyCardController {
     ) {
       return true;
     }
+    if (this.tokenDraftDirty("single")) return true;
+    if (this.tokenDraftDirty("multi")) return true;
     if (
       this.relaxDraft !== undefined &&
       this.relaxDraft !== this.stored.relaxAdmission
@@ -322,6 +371,20 @@ export class ImagePathifyCardController {
     return trimmed === "" ? DEFAULT_VISION_BASE_URL : trimmed;
   }
 
+  private tokenDraftDirty(kind: "single" | "multi"): boolean {
+    const draft =
+      kind === "single" ? this.singleMaxTokensDraft : this.multiMaxTokensDraft;
+    if (draft === undefined) return false;
+    const fallback =
+      kind === "single" ? DEFAULT_SINGLE_MAX_TOKENS : DEFAULT_MULTI_MAX_TOKENS;
+    const stored =
+      kind === "single"
+        ? this.stored.singleMaxTokens
+        : this.stored.multiMaxTokens;
+    const parsed = parseMaxTokens(draft, fallback);
+    return parsed === undefined || parsed !== stored;
+  }
+
   private edit(field: string, text: string): void {
     this.failed = false;
     if (field === "apiKey") {
@@ -330,6 +393,10 @@ export class ImagePathifyCardController {
       this.visionModelDraft = text;
     } else if (field === "visionBaseUrl") {
       this.visionBaseUrlDraft = text;
+    } else if (field === "singleMaxTokens") {
+      this.singleMaxTokensDraft = text;
+    } else if (field === "multiMaxTokens") {
+      this.multiMaxTokensDraft = text;
     }
     this.publish();
   }
@@ -339,6 +406,10 @@ export class ImagePathifyCardController {
     if (field === "visionModel") this.visionModelDraft = DEFAULT_VISION_MODEL;
     else if (field === "visionBaseUrl") {
       this.visionBaseUrlDraft = DEFAULT_VISION_BASE_URL;
+    } else if (field === "singleMaxTokens") {
+      this.singleMaxTokensDraft = String(DEFAULT_SINGLE_MAX_TOKENS);
+    } else if (field === "multiMaxTokens") {
+      this.multiMaxTokensDraft = String(DEFAULT_MULTI_MAX_TOKENS);
     } else if (field === "relaxAdmission") {
       this.relaxDraft = DEFAULTS.relaxAdmission;
     } else if (field === "models") this.modelsDraft = [];
@@ -380,6 +451,8 @@ export class ImagePathifyCardController {
     this.apiKeyDraft = undefined;
     this.visionModelDraft = undefined;
     this.visionBaseUrlDraft = undefined;
+    this.singleMaxTokensDraft = undefined;
+    this.multiMaxTokensDraft = undefined;
     this.relaxDraft = undefined;
     this.modelsDraft = undefined;
     this.failed = false;
@@ -390,6 +463,8 @@ export class ImagePathifyCardController {
     const update: {
       visionModel?: string;
       visionBaseUrl?: string;
+      singleMaxTokens?: number;
+      multiMaxTokens?: number;
       relaxAdmission?: boolean;
       models?: PathifyModelEntry[];
     } = {};
@@ -406,6 +481,28 @@ export class ImagePathifyCardController {
     );
     if (visionBaseUrl !== this.effectiveUrl(this.stored.visionBaseUrl)) {
       update.visionBaseUrl = visionBaseUrl;
+      dirty = true;
+    }
+    const singleMaxTokens = parseMaxTokens(
+      this.singleMaxTokensDraft ?? String(this.stored.singleMaxTokens),
+      DEFAULT_SINGLE_MAX_TOKENS,
+    );
+    if (
+      singleMaxTokens !== undefined &&
+      singleMaxTokens !== this.stored.singleMaxTokens
+    ) {
+      update.singleMaxTokens = singleMaxTokens;
+      dirty = true;
+    }
+    const multiMaxTokens = parseMaxTokens(
+      this.multiMaxTokensDraft ?? String(this.stored.multiMaxTokens),
+      DEFAULT_MULTI_MAX_TOKENS,
+    );
+    if (
+      multiMaxTokens !== undefined &&
+      multiMaxTokens !== this.stored.multiMaxTokens
+    ) {
+      update.multiMaxTokens = multiMaxTokens;
       dirty = true;
     }
     const relax = this.relaxDraft ?? this.stored.relaxAdmission;
@@ -449,6 +546,8 @@ export class ImagePathifyCardController {
       this.apiKeyDraft = undefined;
       this.visionModelDraft = undefined;
       this.visionBaseUrlDraft = undefined;
+      this.singleMaxTokensDraft = undefined;
+      this.multiMaxTokensDraft = undefined;
       this.relaxDraft = undefined;
       this.modelsDraft = undefined;
     } else {

@@ -3,9 +3,14 @@ import { defaultPublicSettings } from "../src/contract.ts";
 import type { ImagePathifyPublicSettings } from "../src/contract.ts";
 import {
   ImagePathifyCardController,
+  parseMaxTokens,
   type VisionCredentialFace,
 } from "../src/client/card-form.ts";
-import { DEFAULT_API_KEY_ENV } from "../src/defaults.ts";
+import {
+  DEFAULT_API_KEY_ENV,
+  DEFAULT_MULTI_MAX_TOKENS,
+  DEFAULT_SINGLE_MAX_TOKENS,
+} from "../src/defaults.ts";
 
 function sample(
   overrides: Partial<ImagePathifyPublicSettings> = {},
@@ -143,5 +148,55 @@ describe("ImagePathifyCardController", () => {
       command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
     });
     expect(card.snapshot.getSnapshot().update).toBeUndefined();
+  });
+
+  it("stages max-token edits and restores the defaults", async () => {
+    const write = vi.fn(async (update) =>
+      sample({
+        singleMaxTokens: update.singleMaxTokens ?? sample().singleMaxTokens,
+        multiMaxTokens: update.multiMaxTokens ?? sample().multiMaxTokens,
+      }),
+    );
+    const card = new ImagePathifyCardController(write);
+    card.receive(sample());
+    const actions = card.inject();
+    expect(card.snapshot.getSnapshot().singleMaxTokens.text).toBe(
+      String(DEFAULT_SINGLE_MAX_TOKENS),
+    );
+    expect(card.snapshot.getSnapshot().singleMaxTokens.overridden).toBe(false);
+    actions.edit("singleMaxTokens", "2048");
+    actions.edit("multiMaxTokens", "8192");
+    expect(card.snapshot.getSnapshot().dirty).toBe(true);
+    expect(card.snapshot.getSnapshot().invalid).toBe(false);
+    expect(card.snapshot.getSnapshot().singleMaxTokens.overridden).toBe(true);
+    await card.save();
+    expect(write).toHaveBeenCalledWith({
+      singleMaxTokens: 2048,
+      multiMaxTokens: 8192,
+    });
+    actions.resetField("singleMaxTokens");
+    expect(card.snapshot.getSnapshot().singleMaxTokens.text).toBe(
+      String(DEFAULT_SINGLE_MAX_TOKENS),
+    );
+  });
+
+  it("blocks save when a max-tokens field is not a positive integer", () => {
+    const card = new ImagePathifyCardController(async () => sample());
+    card.receive(sample());
+    const actions = card.inject();
+    actions.edit("singleMaxTokens", "abc");
+    expect(card.snapshot.getSnapshot().invalid).toBe(true);
+    expect(card.snapshot.getSnapshot().dirty).toBe(true);
+  });
+});
+
+describe("parseMaxTokens", () => {
+  it("treats empty as the fallback and rejects junk", () => {
+    expect(parseMaxTokens("  ", DEFAULT_SINGLE_MAX_TOKENS)).toBe(
+      DEFAULT_SINGLE_MAX_TOKENS,
+    );
+    expect(parseMaxTokens("2048", DEFAULT_SINGLE_MAX_TOKENS)).toBe(2048);
+    expect(parseMaxTokens("0", DEFAULT_SINGLE_MAX_TOKENS)).toBeUndefined();
+    expect(parseMaxTokens("abc", DEFAULT_MULTI_MAX_TOKENS)).toBeUndefined();
   });
 });

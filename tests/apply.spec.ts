@@ -3,6 +3,8 @@ import { Context } from "@deepseek-ai/cordis";
 import type { Config } from "../src/config.ts";
 import {
   DEFAULT_API_KEY_ENV,
+  DEFAULT_MULTI_MAX_TOKENS,
+  DEFAULT_SINGLE_MAX_TOKENS,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "../src/defaults.ts";
@@ -30,6 +32,8 @@ function sample(overrides: Partial<Config> = {}): Config {
     apiKeyEnv: DEFAULT_API_KEY_ENV,
     visionModel: DEFAULT_VISION_MODEL,
     visionBaseUrl: DEFAULT_VISION_BASE_URL,
+    singleMaxTokens: DEFAULT_SINGLE_MAX_TOKENS,
+    multiMaxTokens: DEFAULT_MULTI_MAX_TOKENS,
     ...overrides,
   };
 }
@@ -187,6 +191,70 @@ describe("analyze_image live settings", () => {
     const parts = body.messages[0]?.content ?? [];
     expect(parts.filter((part) => part.type === "image_url")).toHaveLength(2);
     expect(parts.at(-1)?.text).toContain("以下共 2 张图片");
-    expect(body.max_tokens).toBe(4096);
+    expect(body.max_tokens).toBe(DEFAULT_MULTI_MAX_TOKENS);
+  });
+
+  it("uses the configured single-image max_tokens", async () => {
+    const ctx = new Context();
+    contexts.push(ctx);
+
+    let tool: AnalyzeTool | undefined;
+    ctx.provide("llm", {
+      resolveModelInfo: async () => ({ inputModalities: ["text"] }),
+    });
+    ctx.provide("tools", {
+      register(definition: AnalyzeTool) {
+        if (definition.name === "analyze_image") tool = definition;
+        return () => {};
+      },
+    });
+    ctx.provide("credentials", {
+      resolve: async (ref: string) =>
+        ref === DEFAULT_API_KEY_ENV
+          ? { value: "sk-test-key", source: "file" }
+          : undefined,
+    });
+    ctx.provide("settings", {
+      register(
+        _ns: unknown,
+        _schema: unknown,
+        options?: { base?: Partial<Config> },
+      ) {
+        const value = sample({
+          ...options?.base,
+          singleMaxTokens: 2048,
+        });
+        return {
+          get: () => value,
+          watch: () => () => {},
+          update: async () => {},
+        };
+      },
+    });
+
+    await ctx.plugin(plugin, {});
+    expect(tool).toBeDefined();
+
+    const fetchImpl = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "ok" } }],
+        }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+
+    await tool!.execute(
+      { image: "https://example.com/a.png" },
+      { signal: new AbortController().signal },
+    );
+    const fetchCall = fetchImpl.mock.calls[0] as unknown as
+      | [input: string, init?: RequestInit]
+      | undefined;
+    const body = JSON.parse(String(fetchCall![1]?.body)) as {
+      max_tokens: number;
+    };
+    expect(body.max_tokens).toBe(2048);
   });
 });

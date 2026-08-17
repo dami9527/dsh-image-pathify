@@ -128,9 +128,17 @@ export function registerAnalyzeImageTool(
         signal: exec.signal,
       };
       if (images.length === 1) {
-        return analyzeImage({ ...request, image: images[0]! });
+        return analyzeImage({
+          ...request,
+          image: images[0]!,
+          maxTokens: settings.singleMaxTokens,
+        });
       }
-      return analyzeImages({ ...request, images });
+      return analyzeImages({
+        ...request,
+        images,
+        maxTokens: settings.multiMaxTokens,
+      });
     },
   });
 }
