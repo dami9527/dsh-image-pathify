@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Context, symbols } from "@deepseek-ai/cordis";
 import {
   DEFAULT_API_KEY_ENV,
-  DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "../src/defaults.ts";
@@ -27,7 +26,6 @@ function originalOf(service: object): object {
 
 function sample(overrides: Partial<Config> = {}): Config {
   return {
-    prefix: DEFAULT_PREFIX,
     models: [],
     relaxAdmission: true,
     apiKeyEnv: DEFAULT_API_KEY_ENV,

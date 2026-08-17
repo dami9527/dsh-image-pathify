@@ -14,7 +14,6 @@ import type {
 import { defaultPublicSettings } from "../contract.ts";
 import {
   DEFAULT_API_KEY_ENV,
-  DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "../defaults.ts";
@@ -51,7 +50,6 @@ export interface ImagePathifyCardState {
   apiKeyWritable: boolean;
   visionModel: CardFieldState;
   visionBaseUrl: CardFieldState;
-  prefix: CardFieldState;
   relaxAdmission: { checked: boolean; overridden: boolean };
   models: { entries: readonly PathifyModelEntry[]; overridden: boolean };
   update:
@@ -117,7 +115,6 @@ export class ImagePathifyCardController {
   private apiKeyDraft: string | undefined;
   private visionModelDraft: string | undefined;
   private visionBaseUrlDraft: string | undefined;
-  private prefixDraft: string | undefined;
   private relaxDraft: boolean | undefined;
   private modelsDraft: PathifyModelEntry[] | undefined;
   private credential = { ref: "", configured: false, writable: true };
@@ -248,7 +245,6 @@ export class ImagePathifyCardController {
   private projection(): ImagePathifyCardState {
     const visionModel = this.visionModelDraft ?? this.stored.visionModel;
     const visionBaseUrl = this.visionBaseUrlDraft ?? this.stored.visionBaseUrl;
-    const prefix = this.prefixDraft ?? this.stored.prefix;
     const relax = this.relaxDraft ?? this.stored.relaxAdmission;
     const models = this.modelsDraft ?? this.stored.models;
     const resolvedModel = this.effectiveModel(visionModel);
@@ -270,10 +266,6 @@ export class ImagePathifyCardController {
       visionBaseUrl: {
         text: visionBaseUrl,
         overridden: resolvedUrl !== DEFAULT_VISION_BASE_URL,
-      },
-      prefix: {
-        text: prefix,
-        overridden: prefix !== DEFAULT_PREFIX,
       },
       relaxAdmission: {
         checked: relax,
@@ -302,12 +294,6 @@ export class ImagePathifyCardController {
       this.visionBaseUrlDraft !== undefined &&
       this.effectiveUrl(this.visionBaseUrlDraft) !==
         this.effectiveUrl(this.stored.visionBaseUrl)
-    ) {
-      return true;
-    }
-    if (
-      this.prefixDraft !== undefined &&
-      this.prefixDraft !== this.stored.prefix
     ) {
       return true;
     }
@@ -344,8 +330,6 @@ export class ImagePathifyCardController {
       this.visionModelDraft = text;
     } else if (field === "visionBaseUrl") {
       this.visionBaseUrlDraft = text;
-    } else if (field === "prefix") {
-      this.prefixDraft = text;
     }
     this.publish();
   }
@@ -355,8 +339,7 @@ export class ImagePathifyCardController {
     if (field === "visionModel") this.visionModelDraft = DEFAULT_VISION_MODEL;
     else if (field === "visionBaseUrl") {
       this.visionBaseUrlDraft = DEFAULT_VISION_BASE_URL;
-    } else if (field === "prefix") this.prefixDraft = DEFAULT_PREFIX;
-    else if (field === "relaxAdmission") {
+    } else if (field === "relaxAdmission") {
       this.relaxDraft = DEFAULTS.relaxAdmission;
     } else if (field === "models") this.modelsDraft = [];
     this.publish();
@@ -397,7 +380,6 @@ export class ImagePathifyCardController {
     this.apiKeyDraft = undefined;
     this.visionModelDraft = undefined;
     this.visionBaseUrlDraft = undefined;
-    this.prefixDraft = undefined;
     this.relaxDraft = undefined;
     this.modelsDraft = undefined;
     this.failed = false;
@@ -408,7 +390,6 @@ export class ImagePathifyCardController {
     const update: {
       visionModel?: string;
       visionBaseUrl?: string;
-      prefix?: string;
       relaxAdmission?: boolean;
       models?: PathifyModelEntry[];
     } = {};
@@ -425,11 +406,6 @@ export class ImagePathifyCardController {
     );
     if (visionBaseUrl !== this.effectiveUrl(this.stored.visionBaseUrl)) {
       update.visionBaseUrl = visionBaseUrl;
-      dirty = true;
-    }
-    const prefix = this.prefixDraft ?? this.stored.prefix;
-    if (prefix !== this.stored.prefix) {
-      update.prefix = prefix;
       dirty = true;
     }
     const relax = this.relaxDraft ?? this.stored.relaxAdmission;
@@ -473,7 +449,6 @@ export class ImagePathifyCardController {
       this.apiKeyDraft = undefined;
       this.visionModelDraft = undefined;
       this.visionBaseUrlDraft = undefined;
-      this.prefixDraft = undefined;
       this.relaxDraft = undefined;
       this.modelsDraft = undefined;
     } else {

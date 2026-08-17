@@ -12,7 +12,7 @@
 模型调用 analyze_image  →  视觉 API 返回文字描述（多张图一次请求、同一次看见全部）
 ```
 
-已经能看图的模型不受影响，图片会原样发给它们。`read_image` 在不能看图的模型上会被拒绝，并提示改用 `analyze_image`。
+已经能看图的模型不受影响：图片会原样发给它们，`analyze_image` 不会出现在它们的工具列表和系统提示里。`read_image` 在不能看图的模型上会被拒绝，并提示改用 `analyze_image`。
 
 磁盘上的图片文件是 **dsh 自己保存的附件**（`~/.dsh/attachments/v1/...`），不是本插件另存的一份。
 
@@ -32,7 +32,7 @@ dsh web
 
 任何 OpenAI 兼容的视觉接口都可以，把地址和模型改成你的服务即可。设置页改动保存后立即生效，不用重启。
 
-![设置 → 插件 → 识图](access/settings.png)
+设置 → 插件 → 识图
 
 ## 更新
 
@@ -42,10 +42,10 @@ dsh web
 2. 执行复制出来的命令：
 
 ```sh
-dsh plugin --profile web add dsh-image-pathify@0.1.2
+dsh plugin --profile web add dsh-image-pathify@version
 ```
 
-3. 再启动 `dsh web`
+1. 再启动 `dsh web`
 
 插件不会自动改你机器上的包。查询失败或已是最新时，卡片上不显示任何提示。
 
@@ -54,8 +54,11 @@ dsh plugin --profile web add dsh-image-pathify@0.1.2
 1. `--dump-config` 里能看到 `dsh-image-pathify`
 2. 设置 → 插件里出现 **识图** 卡片
 3. 给不能看图的模型发一张图：界面里缩略图还在；模型调用 `analyze_image` 而不是 `read_image`
+4. 给不能看图的模型发本地图片路径或图片URL：应直接调用 `analyze_image`，不要先 `read_image`
+5. 给能看图的模型发一张图：模型直接回答，不调用 `analyze_image`
+6. 给能看图的模型发本地图片路径或图片URL：应直接调用 `read_image`，不要先 `analyze_image`
 
-![给不能看图的模型发图，模型调用 analyze_image](access/example.png)
+给不能看图的模型发图，模型调用 analyze_image
 
 ## 配置
 
@@ -66,7 +69,6 @@ dsh plugin --profile web add dsh-image-pathify@0.1.2
 | `apiKeyEnv`      | `IMAGE_PATHIFY_API_KEY`                             | 凭据引用名。密钥本身写在 `$DSH_HOME/.credentials.yaml`，不进设置文件 |
 | `visionModel`    | `qwen-vl-plus`                                      | 识图模型 id                                                          |
 | `visionBaseUrl`  | `https://dashscope.aliyuncs.com/compatible-mode/v1` | OpenAI 兼容基址                                                      |
-| `prefix`         | `Saved attachments: `                               | 路径前面那句固定文字，通常无需修改                                   |
 | `models`         | 空 = 全部不能看图的模型                             | 只决定**哪些模型允许你发图**。空 = 都能发。填了就只放行名单里的模型  |
 | `relaxAdmission` | `true`                                              | 允许给不能看图的模型发图。关闭后按模型能力拒绝贴图                   |
 
@@ -79,7 +81,7 @@ image-pathify:
       model: deepseek-v4-flash
 ```
 
-模型侧只多一个工具 `analyze_image`：
+模型侧只多一个工具 `analyze_image`（仅不能看图的模型能看见、能调用）。
 
 - 一张图：`image` 填本地绝对路径或 `http(s)` 图片 URL（不要带路径前缀）
 - 多张图：用 `images` 一次传入全部路径，插件会在**同一次**视觉请求里带上所有图片，不必一张一张等

@@ -4,7 +4,7 @@
  * @module dsh-image-pathify/defaults
  */
 
-/** Default pathify prefix (trailing space is significant). */
+/** Default pathify prefix placed before each durable local path. Not user-facing. */
 export const DEFAULT_PREFIX = "Saved attachments: ";
 
 /** Default vision model id (DashScope compatible-mode). */

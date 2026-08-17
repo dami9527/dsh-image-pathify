@@ -30,7 +30,6 @@ export function toPublicSettings(value: Config): ImagePathifyPublicSettings {
     apiKeyEnv: credentialRefName(value.apiKeyEnv),
     visionModel: value.visionModel,
     visionBaseUrl: value.visionBaseUrl,
-    prefix: value.prefix,
     models: value.models.map((entry) => ({
       provider: entry.provider,
       model: entry.model,
@@ -55,7 +54,6 @@ export async function applySettingsUpdate(
   if (update.visionBaseUrl !== undefined) {
     patch.visionBaseUrl = update.visionBaseUrl;
   }
-  if (update.prefix !== undefined) patch.prefix = update.prefix;
   if (update.models !== undefined) {
     patch.models = update.models
       .map((entry) => ({

@@ -3,7 +3,6 @@ import { Context } from "@deepseek-ai/cordis";
 import type { Config } from "../src/config.ts";
 import {
   DEFAULT_API_KEY_ENV,
-  DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "../src/defaults.ts";
@@ -26,7 +25,6 @@ interface AnalyzeTool {
 
 function sample(overrides: Partial<Config> = {}): Config {
   return {
-    prefix: DEFAULT_PREFIX,
     models: [],
     relaxAdmission: true,
     apiKeyEnv: DEFAULT_API_KEY_ENV,

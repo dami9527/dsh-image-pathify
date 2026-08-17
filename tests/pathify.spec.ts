@@ -50,6 +50,31 @@ function imageMessage() {
   });
 }
 
+function pathMessage() {
+  return createMessage({
+    role: "user",
+    content: [
+      {
+        type: "text",
+        text: "这张图片是什么？\n/Users/dami/Pictures/ikun.png",
+      },
+    ],
+    source: { kind: "user" },
+  });
+}
+
+function catalogTools() {
+  return [
+    {
+      name: "analyze_image",
+      description: "analyze",
+      parameters: {},
+    },
+    { name: "read_image", description: "read", parameters: {} },
+    { name: "bash", description: "bash", parameters: {} },
+  ];
+}
+
 /** Records the exact options the adapter received. */
 class RecordingAdapter extends LlmAdapter {
   lastOptions: GenerateOptions | undefined;
@@ -119,7 +144,6 @@ async function setup(options: SetupOptions = {}): Promise<SetupResult> {
   );
   ctx.llm.registerAdapter(["route"], adapter);
   await ctx.plugin(plugin, {
-    prefix: "Saved attachments: ",
     models: [],
     relaxAdmission: true,
     ...options.config,
@@ -162,6 +186,27 @@ describe("dsh-image-pathify", () => {
         text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
       },
     ]);
+  });
+
+  it("ignores a leftover prefix in stored config", async () => {
+    const { ctx, adapter } = await setup({
+      attachments: { root: "/attachments" },
+      modalities: { model: ["text"] },
+      config: { prefix: "PATH: " },
+    });
+
+    await drain(
+      ctx.llm.stream({
+        provider: "route",
+        model: "model",
+        messages: [imageMessage()],
+      }),
+    );
+
+    expect(adapter.lastOptions?.messages[0]?.content[1]).toEqual({
+      type: "text",
+      text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+    });
   });
 
   it("passes image blocks through untouched for a vision model", async () => {
@@ -278,27 +323,6 @@ describe("dsh-image-pathify", () => {
         text: `Saved attachments: /canonical/sha256:${"a".repeat(64)}`,
       },
     ]);
-  });
-
-  it("rewrites with a custom prefix", async () => {
-    const { ctx, adapter } = await setup({
-      attachments: { root: "/attachments" },
-      modalities: { model: ["text"] },
-      config: { prefix: "PATH: " },
-    });
-
-    await drain(
-      ctx.llm.stream({
-        provider: "route",
-        model: "model",
-        messages: [imageMessage()],
-      }),
-    );
-
-    expect(adapter.lastOptions?.messages[0]?.content[1]).toEqual({
-      type: "text",
-      text: `PATH: /attachments/objects/aa/${"a".repeat(64)}`,
-    });
   });
 
   it("rewrites multiple image blocks in order", async () => {
@@ -426,6 +450,51 @@ describe("dsh-image-pathify", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("drops read_image from a text-only request that only names a local path", async () => {
+    const { ctx, adapter } = await setup({
+      attachments: { root: "/attachments" },
+      modalities: { model: ["text"] },
+    });
+    const system = plugin.visionPromptText();
+    await drain(
+      ctx.llm.stream({
+        provider: "route",
+        model: "model",
+        messages: [pathMessage()],
+        tools: catalogTools(),
+        system,
+      }),
+    );
+    expect(adapter.lastOptions?.tools?.map((tool) => tool.name)).toEqual([
+      "analyze_image",
+      "bash",
+    ]);
+    expect(adapter.lastOptions?.system).toContain("analyze_image");
+  });
+
+  it("drops analyze_image from a vision request that only names a local path", async () => {
+    const { ctx, adapter } = await setup({
+      attachments: { root: "/attachments" },
+      modalities: { model: ["text", "image"] },
+    });
+    const system = `persona\n\n${plugin.visionPromptText()}\n\nfooter`;
+    await drain(
+      ctx.llm.stream({
+        provider: "route",
+        model: "model",
+        messages: [pathMessage()],
+        tools: catalogTools(),
+        system,
+      }),
+    );
+    expect(adapter.lastOptions?.tools?.map((tool) => tool.name)).toEqual([
+      "read_image",
+      "bash",
+    ]);
+    expect(adapter.lastOptions?.system).not.toContain("analyze_image");
+    expect(adapter.lastOptions?.system).toContain("persona");
+  });
 });
 
 describe("admission shim", () => {
@@ -500,7 +569,6 @@ describe("admission shim", () => {
       new RecordingAdapter({ model: ["text"] }),
     );
     const fiber = await ctx.plugin(plugin, {
-      prefix: "Saved attachments: ",
       models: [],
       relaxAdmission: true,
     });

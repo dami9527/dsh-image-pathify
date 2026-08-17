@@ -40,5 +40,22 @@ declare module "@deepseek-ai/cordis" {
       exec: ToolExecution,
       next: () => Promise<PreToolDecision>,
     ): Promise<PreToolDecision> | PreToolDecision;
+    "system-prompt/assemble"(
+      assembly: {
+        sections: { name: string }[];
+        tools: { name: string }[];
+      },
+      context: {
+        agent?: ToolExecution["agent"];
+        signal?: AbortSignal;
+      },
+      next: () => Promise<{
+        sections: { name: string }[];
+        tools: { name: string }[];
+      }>,
+    ): Promise<{
+      sections: { name: string }[];
+      tools: { name: string }[];
+    }>;
   }
 }

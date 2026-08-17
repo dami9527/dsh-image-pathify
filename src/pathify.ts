@@ -24,6 +24,7 @@ import {
   deepFreeze,
   freezeMessage,
 } from "@deepseek-ai/dsh-llm";
+import { DEFAULT_PREFIX } from "./defaults.ts";
 
 /** Content-addressed reference shape the local store mints and resolves. */
 const ID_PATTERN = /^sha256:([a-f0-9]{64})$/;
@@ -117,7 +118,6 @@ export async function resolveImagePath(
  * @param options - the request to rewrite; messages are replaced only when
  * the request actually carries images.
  * @param attachments - live attachment store service.
- * @param prefix - text placed before each path.
  * @param signal - optional abort for path resolution.
  * @returns the original options when no rewrite applies, else a copy whose
  * messages keep their identity, sources, and non-image blocks.
@@ -125,7 +125,6 @@ export async function resolveImagePath(
 export async function pathifyImages(
   options: GenerateOptions,
   attachments: AttachmentStore,
-  prefix: string,
   signal?: AbortSignal,
 ): Promise<GenerateOptions> {
   if (!messagesHaveImage(options.messages)) return options;
@@ -140,7 +139,7 @@ export async function pathifyImages(
             block.attachment,
             signal,
           );
-          return { type: "text" as const, text: `${prefix}${path}` };
+          return { type: "text" as const, text: `${DEFAULT_PREFIX}${path}` };
         }),
       );
       if (content.every((block, index) => block === message.content[index])) {

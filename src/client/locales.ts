@@ -25,8 +25,6 @@ export const zh = {
   visionModelHint: "例如千问/智普/小米等能够识图的模型，留空则使用默认模型。",
   visionBaseUrl: "接口地址",
   visionBaseUrlHint: "任何 OpenAI 兼容格式 URL，留空则使用默认地址。",
-  prefix: "路径前缀",
-  prefixHint: "写在本地路径前面，通常无需修改。",
   relaxAdmission: "允许给不能看图的模型发图",
   relaxAdmissionHint: "关闭后按模型能力拒绝贴图。",
   models: "放行的模型",
@@ -70,8 +68,6 @@ export const en = {
   visionBaseUrl: "Endpoint",
   visionBaseUrlHint:
     "Any OpenAI-compatible URL. Leave blank to use the default.",
-  prefix: "Path prefix",
-  prefixHint: "Text placed before each local path; Usually no need to change.",
   relaxAdmission: "Allow images on text-only models",
   relaxAdmissionHint: "Turn off to reject pasted images by model capability.",
   models: "Allowed models",

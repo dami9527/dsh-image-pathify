@@ -57,7 +57,7 @@ export function registerAnalyzeImageTool(
   ctx.tools.register({
     name: "analyze_image",
     description:
-      'Analyze one or more images at local absolute paths or HTTP(S) URLs and return text descriptions. Use this instead of read_image when the current model cannot view images. Conversation text that starts with the configured pathify prefix (default "Saved attachments: ") is a saved image file — pass the absolute path after that prefix. When the user sends several images, pass every path in a single call via images (or an image array). Do not call this tool once per image.',
+      'Analyze one or more images at local absolute paths or HTTP(S) URLs and return text descriptions. Use this instead of read_image when the current model cannot view images, including when the user gives a local image path rather than embedding the file. If you can already see the image, answer directly and do not call this tool. Conversation text that starts with "Saved attachments: " is a saved image file — pass the absolute path after that prefix. When the user sends several images, pass every path in a single call via images (or an image array). Do not call this tool once per image.',
     parameters: {
       type: "object",
       properties: {
@@ -67,7 +67,7 @@ export function registerAnalyzeImageTool(
             { type: "array", items: { type: "string" } },
           ],
           description:
-            "Absolute local image path, or an http(s) URL. Do not include the pathify prefix. For several images, prefer images.",
+            'Absolute local image path, or an http(s) URL. Do not include the "Saved attachments: " prefix. For several images, prefer images.',
         },
         images: {
           type: "array",

@@ -358,37 +358,6 @@ export function ImagePathifyCard({
 
           <div className="dsh_imagePathify_field">
             <div className="dsh_imagePathify_fieldHead">
-              <label
-                className="dsh_imagePathify_label"
-                htmlFor="plugin-config-image-pathify-prefix"
-              >
-                {t("prefix")}
-              </label>
-              <OverrideBadges
-                overridden={state.prefix.overridden}
-                disabled={disabled}
-                overriddenLabel={t("overridden")}
-                resetLabel={t("reset")}
-                onReset={() => {
-                  resetField("prefix");
-                }}
-              />
-            </div>
-            <input
-              id="plugin-config-image-pathify-prefix"
-              className="dsh_imagePathify_input"
-              spellCheck={false}
-              value={state.prefix.text}
-              disabled={disabled}
-              onChange={(event) => {
-                edit("prefix", event.target.value);
-              }}
-            />
-            <p className="dsh_imagePathify_hint">{t("prefixHint")}</p>
-          </div>
-
-          <div className="dsh_imagePathify_field">
-            <div className="dsh_imagePathify_fieldHead">
               <label className="dsh_imagePathify_toggle">
                 <input
                   type="checkbox"

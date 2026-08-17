@@ -11,7 +11,6 @@ import type {
 } from "@deepseek-ai/dsh-typert-protocol";
 import {
   DEFAULT_API_KEY_ENV,
-  DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "./defaults.ts";
@@ -30,7 +29,6 @@ export interface ImagePathifyPublicSettings {
   readonly apiKeyEnv: string;
   readonly visionModel: string;
   readonly visionBaseUrl: string;
-  readonly prefix: string;
   readonly models: readonly PathifyModelEntry[];
   readonly relaxAdmission: boolean;
 }
@@ -55,7 +53,6 @@ export interface ImagePathifySettingsUpdate {
   readonly apiKeyEnv?: string;
   readonly visionModel?: string;
   readonly visionBaseUrl?: string;
-  readonly prefix?: string;
   readonly models?: readonly PathifyModelEntry[];
   readonly relaxAdmission?: boolean;
 }
@@ -66,7 +63,6 @@ export function defaultPublicSettings(): ImagePathifyPublicSettings {
     apiKeyEnv: DEFAULT_API_KEY_ENV,
     visionModel: DEFAULT_VISION_MODEL,
     visionBaseUrl: DEFAULT_VISION_BASE_URL,
-    prefix: DEFAULT_PREFIX,
     models: [],
     relaxAdmission: true,
   };
@@ -110,7 +106,6 @@ export const publicSettingsSchema: TypertSchema<ImagePathifyPublicSettings> = {
       apiKeyEnv: readString(value.apiKeyEnv, "apiKeyEnv"),
       visionModel: readString(value.visionModel, "visionModel"),
       visionBaseUrl: readString(value.visionBaseUrl, "visionBaseUrl"),
-      prefix: readString(value.prefix, "prefix"),
       models: modelsRaw.map(readModel),
       relaxAdmission: readBoolean(value.relaxAdmission, "relaxAdmission"),
     };
@@ -144,9 +139,6 @@ export const settingsUpdateSchema: TypertSchema<ImagePathifySettingsUpdate> = {
       ...(value.visionBaseUrl === undefined
         ? {}
         : { visionBaseUrl: readString(value.visionBaseUrl, "visionBaseUrl") }),
-      ...(value.prefix === undefined
-        ? {}
-        : { prefix: readString(value.prefix, "prefix") }),
       ...(value.models === undefined
         ? {}
         : {

@@ -7,15 +7,12 @@
 import z from "@deepseek-ai/schemastery";
 import {
   DEFAULT_API_KEY_ENV,
-  DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "./defaults.ts";
 
 /** Tunables; invalid config fails at load. The interface names the schema's output shape. */
 export interface Config {
-  /** Text placed before each durable path in the rewritten text block. */
-  prefix: string;
   /**
    * Restrict host-admission relaxation to these exact provider/model pairs.
    * Empty (default) relaxes every model whose declared input modalities
@@ -40,8 +37,6 @@ export interface Config {
 }
 
 export const Config = z.object({
-  /** Text placed before each durable path in the rewritten text block. */
-  prefix: z.string().default(DEFAULT_PREFIX),
   /**
    * Restrict host-admission relaxation to these exact provider/model pairs.
    * Empty (default) relaxes every model whose declared input modalities

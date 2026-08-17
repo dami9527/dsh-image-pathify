@@ -5,7 +5,7 @@ import {
   ImagePathifyCardController,
   type VisionCredentialFace,
 } from "../src/client/card-form.ts";
-import { DEFAULT_API_KEY_ENV, DEFAULT_PREFIX } from "../src/defaults.ts";
+import { DEFAULT_API_KEY_ENV } from "../src/defaults.ts";
 
 function sample(
   overrides: Partial<ImagePathifyPublicSettings> = {},
@@ -58,17 +58,6 @@ describe("ImagePathifyCardController", () => {
     actions.discard();
     expect(card.snapshot.getSnapshot().dirty).toBe(false);
     expect(card.snapshot.getSnapshot().visionModel.text).toBe("qwen-vl-plus");
-  });
-
-  it("keeps a trailing space on the prefix and restores the default", () => {
-    const card = new ImagePathifyCardController(async () => sample());
-    card.receive(sample({ prefix: "PATH:" }));
-    const actions = card.inject();
-    expect(card.snapshot.getSnapshot().prefix.overridden).toBe(true);
-    actions.resetField("prefix");
-    expect(card.snapshot.getSnapshot().prefix.text).toBe(DEFAULT_PREFIX);
-    expect(card.snapshot.getSnapshot().prefix.overridden).toBe(false);
-    expect(card.snapshot.getSnapshot().dirty).toBe(true);
   });
 
   it("treats an emptied endpoint as the default URL", () => {

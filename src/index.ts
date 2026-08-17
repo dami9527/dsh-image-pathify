@@ -11,8 +11,13 @@
  *    rewrites image blocks to `Saved attachments: <absolute path>` text
  *    blocks when the target model lacks the image input modality.
  *    `analyze_image` then reads those files through the configured vision
- *    API. `read_image` is denied on non-vision routes so the model is
- *    steered to `analyze_image` on the first attempt.
+ *    API. Immediately before dispatch, `llm/stream` also drops `read_image`
+ *    for text-only models and `analyze_image` for vision models, using the
+ *    provider/model on that request (not the possibly-stale agent options).
+ *    `read_image` is denied on non-vision routes so a leftover call is
+ *    steered to `analyze_image`. Vision-capable models keep original image
+ *    blocks; `analyze_image` is omitted from their request and denied if
+ *    they still call it.
  *
  * Because the host's image admission preflights (`session.prompt`,
  * `session.selectModel`) have no plugin seam, this plugin also installs a
@@ -29,6 +34,7 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type { AttachmentStore } from "@deepseek-ai/dsh-attachment";
 import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
+import { deepFreeze } from "@deepseek-ai/dsh-llm";
 // Side-effect type import: merges the `llm/stream` event and `ctx.llm` into
 // the program so `ctx.on('llm/stream', …)` and `ctx.llm` type-check.
 import type {} from "@deepseek-ai/dsh-llm";
@@ -39,7 +45,11 @@ import type {} from "@deepseek-ai/dsh-system-prompt";
 import { installAdmissionShim } from "./admission.ts";
 import { Config, type Config as ConfigShape } from "./config.ts";
 import { messagesHaveImage, pathifyImages } from "./pathify.ts";
-import { installVisionPolicy, readImagePreExecute } from "./policy.ts";
+import {
+  installVisionPolicy,
+  filterDispatchForRoute,
+  visionToolsPreExecute,
+} from "./policy.ts";
 import { ImagePathifyRuntime } from "./runtime.ts";
 import {
   applySettingsUpdate,
@@ -69,12 +79,23 @@ export {
 } from "./vision.ts";
 export { collectImageSources } from "./tool.ts";
 export {
+  ANALYZE_IMAGE_TOOL,
+  READ_IMAGE_TOOL,
+  VISION_PROMPT_NAME,
   VISION_PROMPT_ORDER,
+  analyzeImageDenyReason,
+  analyzeImagePreExecute,
+  assembleVisionPolicy,
+  filterAssemblyForRoute,
+  filterDispatchForRoute,
   readImageDenyReason,
   readImagePreExecute,
+  requestHeaderRoute,
   routeAcceptsImage,
   routedModel,
+  stripAnalyzeImage,
   visionPromptText,
+  visionToolsPreExecute,
 } from "./policy.ts";
 
 /** Cordis plugin name used by Loader diagnostics. */
@@ -111,39 +132,58 @@ async function shouldRewrite(
 }
 
 /**
+ * Drop the off-route image tool using the provider/model on this request.
+ */
+function applyDispatchPolicy(
+  ctx: Context,
+  options: GenerateOptions,
+  vision: boolean,
+): GenerateOptions {
+  const filtered = filterDispatchForRoute(options, vision);
+  if (filtered === options) return options;
+  return Object.isFrozen(options)
+    ? deepFreeze(filtered as GenerateOptions)
+    : (filtered as GenerateOptions);
+}
+
+/**
  * Wrap one `llm/stream` dispatch. Model capability resolution is async, but
  * the waterfall chain composes synchronously, so the decision is deferred
  * into an async generator — the same pattern the harness's own
- * `session-checkpoint-policy` uses on this event. When a rewrite applies,
- * the request re-enters the waterfall with the rewritten messages (the
- * re-dispatch passes through this listener untouched because the rewritten
- * messages carry no image blocks); otherwise the original chain continues
- * via `next()`.
+ * `session-checkpoint-policy` uses on this event. Catalog filtering uses
+ * the dispatched provider/model so the first step is not poisoned by a
+ * stale `agent.options`. When a rewrite applies, the request re-enters the
+ * waterfall (the re-dispatch passes through this listener untouched because
+ * the rewritten messages carry no image blocks and the catalog is already
+ * filtered); otherwise the original chain continues via `next()`.
  */
 function pathifyStream(
   ctx: Context,
   options: GenerateOptions,
   next: () => AsyncIterable<StreamChunk>,
-  prefix: string,
 ): AsyncIterable<StreamChunk> {
   return (async function* (): AsyncIterable<StreamChunk> {
-    if (!(await shouldRewrite(ctx, options))) {
-      yield* next();
+    const vision = !(await shouldRewrite(ctx, options));
+    const routed = applyDispatchPolicy(ctx, options, vision);
+    if (vision || !messagesHaveImage(routed.messages)) {
+      if (routed === options) {
+        yield* next();
+        return;
+      }
+      yield* ctx.llm.stream(routed);
       return;
     }
     const attachments = ctx.get("attachments") as AttachmentStore | undefined;
     if (attachments === undefined) {
-      // No store means no durable path to surface; leave the request alone.
-      yield* next();
+      if (routed === options) {
+        yield* next();
+        return;
+      }
+      yield* ctx.llm.stream(routed);
       return;
     }
     options.signal?.throwIfAborted();
-    const rewritten = await pathifyImages(
-      options,
-      attachments,
-      prefix,
-      options.signal,
-    );
+    const rewritten = await pathifyImages(routed, attachments, options.signal);
     if (rewritten === options) {
       yield* next();
       return;
@@ -166,8 +206,7 @@ export function apply(ctx: Context, config?: object): void {
   ctx.on(
     "llm/stream",
     (options: GenerateOptions, next: () => AsyncIterable<StreamChunk>) => {
-      if (!messagesHaveImage(options.messages)) return next();
-      return pathifyStream(ctx, options, next, current().prefix);
+      return pathifyStream(ctx, options, next);
     },
   );
 
@@ -219,11 +258,11 @@ export function apply(ctx: Context, config?: object): void {
   ctx.inject(["tools"], (tctx: Context) => {
     registerAnalyzeImageTool(tctx, current);
     tctx.on("tools/pre-execute", (exec, next) =>
-      readImagePreExecute(tctx, exec, next),
+      visionToolsPreExecute(tctx, exec, next),
     );
   });
 
   ctx.inject(["systemPrompt"], (pctx: Context) => {
-    installVisionPolicy(pctx, current);
+    installVisionPolicy(pctx);
   });
 }
