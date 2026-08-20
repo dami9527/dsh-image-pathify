@@ -35,6 +35,11 @@ const MEDIA_EXTENSION: Readonly<Record<string, string>> = {
   "image/jpeg": ".jpg",
   "image/webp": ".webp",
   "image/gif": ".gif",
+  "image/bmp": ".bmp",
+  "image/tiff": ".tiff",
+  "image/heic": ".heic",
+  "image/heif": ".heif",
+  "image/avif": ".avif",
 };
 
 /** True when any message in the request carries an image block. */

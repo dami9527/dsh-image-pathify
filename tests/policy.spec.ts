@@ -28,6 +28,8 @@ describe("visionPromptText", () => {
     expect(text).toContain("Do not call analyze_image once per image");
     expect(text).toContain("file://");
     expect(text).toContain(".png");
+    expect(text).toContain(".heic");
+    expect(text).toContain(".tiff");
     expect(text).not.toContain("unless");
   });
 });

@@ -126,6 +126,48 @@ describe("analyzeImage", () => {
     );
   });
 
+  it.each([
+    ["/tmp/photo.jpg", "jpeg"],
+    ["/tmp/scan.tif", "tiff"],
+    ["/tmp/scan.tiff", "tiff"],
+    ["/tmp/phone.heic", "heic"],
+    ["/tmp/phone.heif", "heif"],
+    ["/tmp/shot.avif", "avif"],
+  ] as const)("encodes %s as image/%s", async (image, subtype) => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "ok" } }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const bytes = new Uint8Array([9, 8, 7]);
+    await analyzeImage(
+      {
+        apiKey: "sk-test",
+        model: "qwen-vl-plus",
+        baseUrl: "https://example.com/v1",
+        image,
+        prompt: DEFAULT_VISION_PROMPT,
+      },
+      {
+        fetch: fetchImpl as unknown as typeof fetch,
+        readFile: async () => bytes,
+      },
+    );
+    const fetchCall = fetchImpl.mock.calls[0] as unknown as
+      | [input: string, init?: RequestInit]
+      | undefined;
+    const body = JSON.parse(String(fetchCall![1]?.body)) as {
+      messages: { content: { image_url?: { url: string } }[] }[];
+    };
+    expect(body.messages[0]?.content[0]?.image_url?.url).toBe(
+      `data:image/${subtype};base64,${Buffer.from(bytes).toString("base64")}`,
+    );
+  });
+
   it("surfaces a non-2xx API body", async () => {
     await expect(
       analyzeImage(

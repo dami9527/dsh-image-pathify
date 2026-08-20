@@ -22,10 +22,17 @@ export const DEFAULT_VISION_PROMPT = "请详细描述这张图片的内容。";
 const MIME_BY_EXT: Readonly<Record<string, string>> = {
   jpg: "jpeg",
   jpeg: "jpeg",
+  jpe: "jpeg",
+  jfif: "jpeg",
   png: "png",
   gif: "gif",
   webp: "webp",
   bmp: "bmp",
+  tif: "tiff",
+  tiff: "tiff",
+  heic: "heic",
+  heif: "heif",
+  avif: "avif",
 };
 
 /** One vision completion. */
