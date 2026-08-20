@@ -1,7 +1,11 @@
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   checkPluginUpdate,
   compareVersions,
+  profileNameFromBaseUrl,
+  resolvePluginProfile,
   upgradeCommand,
 } from "../src/update.ts";
 
@@ -10,6 +14,10 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function profileDirUrl(name: string): string {
+  return `${pathToFileURL(join("/tmp/dsh-home/profiles", name)).href}/`;
 }
 
 describe("compareVersions", () => {
@@ -21,10 +29,67 @@ describe("compareVersions", () => {
   });
 });
 
+describe("profileNameFromBaseUrl", () => {
+  it("reads the profiles/<name> directory from a Loader file URL", () => {
+    expect(profileNameFromBaseUrl(profileDirUrl("mybot"))).toBe("mybot");
+    expect(profileNameFromBaseUrl(profileDirUrl("工作 profile"))).toBe(
+      "工作 profile",
+    );
+  });
+
+  it("ignores URLs that are not a profiles/<name> directory", () => {
+    expect(
+      profileNameFromBaseUrl(`${pathToFileURL("/tmp/other/mybot").href}/`),
+    ).toBeUndefined();
+    expect(
+      profileNameFromBaseUrl(profileDirUrl("node_modules")),
+    ).toBeUndefined();
+    expect(profileNameFromBaseUrl("https://example.com/profiles/web/")).toBe(
+      undefined,
+    );
+  });
+});
+
+describe("resolvePluginProfile", () => {
+  it("defaults to web when Desktop services and baseUrl are absent", () => {
+    expect(resolvePluginProfile(undefined)).toBe("web");
+  });
+
+  it("uses desktopProfiles.current.name when the service is present", () => {
+    expect(
+      resolvePluginProfile({ current: { name: "desktop", dir: "/tmp/p" } }),
+    ).toBe("desktop");
+    expect(resolvePluginProfile({ current: { name: "custom" } })).toBe(
+      "custom",
+    );
+  });
+
+  it("falls back to Loader baseUrl when Desktop is absent", () => {
+    expect(resolvePluginProfile(undefined, profileDirUrl("mybot"))).toBe(
+      "mybot",
+    );
+  });
+
+  it("prefers desktopProfiles over Loader baseUrl", () => {
+    expect(
+      resolvePluginProfile(
+        { current: { name: "desktop" } },
+        profileDirUrl("mybot"),
+      ),
+    ).toBe("desktop");
+  });
+});
+
 describe("upgradeCommand", () => {
   it("copies the official CLI add command pinned to the probed version", () => {
     expect(upgradeCommand("dsh-image-pathify", "0.1.2")).toBe(
       "dsh plugin --profile web add dsh-image-pathify@0.1.2",
+    );
+    expect(upgradeCommand("dsh-image-pathify", "0.1.2", "desktop")).toBe(
+      "dsh plugin --profile desktop add dsh-image-pathify@0.1.2",
+    );
+    expect(upgradeCommand("dsh-image-pathify", "0.1.2", "工作 profile")).toBe(
+      'dsh plugin --profile "工作 profile" add dsh-image-pathify@0.1.2',
     );
   });
 });
@@ -47,6 +112,23 @@ describe("checkPluginUpdate", () => {
       command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("pins the copied command to the supplied profile", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ "dist-tags": { latest: "0.1.1" } }),
+    );
+    await expect(
+      checkPluginUpdate({
+        fetchImpl,
+        installedVersion: "0.1.0",
+        packageName: "dsh-image-pathify",
+        profile: "desktop",
+      }),
+    ).resolves.toMatchObject({
+      updateAvailable: true,
+      command: "dsh plugin --profile desktop add dsh-image-pathify@0.1.1",
+    });
   });
 
   it("does not flag an update when already on latest", async () => {

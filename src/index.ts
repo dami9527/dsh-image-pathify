@@ -27,7 +27,9 @@
  * `llm` is required. `tools`, `systemPrompt`, `settings`, and `typert` are
  * joined with nested `ctx.inject` so pathify still loads in a composition
  * that has only the LLM seam (and so unit tests that stub only `llm` keep
- * working). A web profile provides all of them.
+ * working). A web or desktop profile provides all of them. Desktop
+ * `desktopProfiles` is probed with `ctx.get`, never required `inject`;
+ * ordinary DSH falls back to Loader `ctx.baseUrl`.
  * @module dsh-image-pathify
  */
 
@@ -58,7 +60,7 @@ import {
 } from "./settings.ts";
 import { registerAnalyzeImageTool } from "./tool.ts";
 import { TYPERT_MANIFEST } from "./typert.ts";
-import { checkPluginUpdate } from "./update.ts";
+import { checkPluginUpdate, resolvePluginProfile } from "./update.ts";
 
 export { Config } from "./config.ts";
 export {
@@ -241,7 +243,9 @@ export function apply(ctx: Context, config?: object): void {
     });
 
     sctx.inject(["typert"], (tctx: Context) => {
-      const updateProbe = checkPluginUpdate();
+      const updateProbe = checkPluginUpdate({
+        profile: resolvePluginProfile(ctx.get("desktopProfiles"), ctx.baseUrl),
+      });
       new ImagePathifyRuntime(
         tctx,
         () => toPublicSettings(scope.get()),

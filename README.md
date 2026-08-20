@@ -1,6 +1,6 @@
 # dsh-image-pathify
 
-让 **deepseek-v4-flash** 这类「不能看图」的模型，也能处理你贴进聊天里的图片，并直接调用插件内置的识图工具。
+让 **deepseek-v4** 这类「不能看图」的模型，也能处理你贴进聊天里的图片，并直接调用插件内置的识图工具。
 
 聊天记录和界面里的缩略图**不会变**。插件只在把消息发给模型前，把图片换成一行本地文件路径；模型再调用 `analyze_image` 读这个文件，通过你配置的视觉 API 得到文字描述。
 
@@ -20,7 +20,6 @@
 
 ```sh
 dsh plugin --profile web add dsh-image-pathify
-dsh --profile web --dump-config   # 能看到 dsh-image-pathify 就装好了
 dsh web
 ```
 
@@ -36,27 +35,28 @@ dsh web
 
 ## 更新
 
-已装版本落后于 npm 最新版时，**识图**卡片 header（不用展开）会显示「发现新版本 x → y」和 **复制升级命令**。点按钮把命令复制到剪贴板（钉死探测到的版本号，不要用 `@latest`），然后：
+已装版本落后于 npm 最新版时，**识图**卡片 header会显示「发现新版本 x → y」和 **复制升级命令**，点按钮把命令复制到剪贴板。命令里的 `--profile` 按当前进程解析，取不到兜底 `web`。
 
-1. 结束当前正在跑的 `dsh web`（终端里 `Ctrl+C`）
+![更新](access/update.png)
+
+1. 结束当前正在跑的dsh，例如： `dsh web`（终端里 `Ctrl+C`）
 2. 执行复制出来的命令：
 
 ```sh
 dsh plugin --profile web add dsh-image-pathify@version
 ```
 
-1. 再启动 `dsh web`
+再启动 `dsh web`
 
 插件不会自动改你机器上的包。查询失败或已是最新时，卡片上不显示任何提示。
 
 ## 怎么确认可用
 
-1. `--dump-config` 里能看到 `dsh-image-pathify`
-2. 设置 → 插件里出现 **识图** 卡片
-3. 给不能看图的模型发一张图：界面里缩略图还在；模型调用 `analyze_image` 而不是 `read_image`
-4. 给不能看图的模型发本地图片路径或图片URL：应直接调用 `analyze_image`，不要先 `read_image`
-5. 给能看图的模型发一张图：模型直接回答，不调用 `analyze_image`
-6. 给能看图的模型发本地图片路径或图片URL：应直接调用 `read_image`，不要先 `analyze_image`
+1. 设置 → 插件里出现 **识图** 卡片
+2. 给不能看图的模型发一张图：界面里缩略图还在；模型调用 `analyze_image` 而不是 `read_image`
+3. 给不能看图的模型发本地图片路径或图片URL：应直接调用 `analyze_image`，不要先 `read_image`
+4. 给能看图的模型发一张图：模型直接回答，不调用 `analyze_image`
+5. 给能看图的模型发本地图片路径或图片URL：应直接调用 `read_image`，不要先 `analyze_image`
 
 ![给不能看图的模型发图，模型调用 analyze_image](access/example.png)
 
