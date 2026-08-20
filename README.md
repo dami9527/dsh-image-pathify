@@ -31,13 +31,13 @@ dsh web
 
 任何 OpenAI 兼容的视觉接口都可以，把地址和模型改成你的服务即可。设置页改动保存后立即生效，不用重启。
 
-![设置 → 插件 → 识图](access/settings.png)
+![设置 → 插件 → 识图](assets/settings.png)
 
 ## 更新
 
 已装版本落后于 npm 最新版时，**识图**卡片 header会显示「发现新版本 x → y」和 **复制升级命令**，点按钮把命令复制到剪贴板。命令里的 `--profile` 按当前进程解析，取不到兜底 `web`。
 
-![更新](access/update.png)
+![更新](assets/update.png)
 
 1. 结束当前正在跑的dsh，例如： `dsh web`（终端里 `Ctrl+C`）
 2. 执行复制出来的命令：
@@ -58,7 +58,7 @@ dsh plugin --profile web add dsh-image-pathify@version
 4. 给能看图的模型发一张图：模型直接回答，不调用 `analyze_image`
 5. 给能看图的模型发本地图片路径或图片URL：应直接调用 `read_image`，不要先 `analyze_image`
 
-![给不能看图的模型发图，模型调用 analyze_image](access/example.png)
+![给不能看图的模型发图，模型调用 analyze_image](assets/example.png)
 
 ## 配置
 
