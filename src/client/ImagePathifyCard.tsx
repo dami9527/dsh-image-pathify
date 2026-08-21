@@ -17,6 +17,7 @@ export interface ImagePathifyCardInjected {
   resetField: (field: string) => void;
   save: () => void;
   discard: () => void;
+  setDisableThinking: (value: boolean) => void;
   setRelaxAdmission: (value: boolean) => void;
   addModel: (provider: string, model: string) => void;
   removeModel: (provider: string, model: string) => void;
@@ -30,6 +31,7 @@ export interface ImagePathifyCardProps {
   resetField: (field: string) => void;
   save: () => void;
   discard: () => void;
+  setDisableThinking: (value: boolean) => void;
   setRelaxAdmission: (value: boolean) => void;
   addModel: (provider: string, model: string) => void;
   removeModel: (provider: string, model: string) => void;
@@ -144,6 +146,7 @@ export function ImagePathifyCard({
   resetField,
   save,
   discard,
+  setDisableThinking,
   setRelaxAdmission,
   addModel,
   removeModel,
@@ -223,7 +226,14 @@ export function ImagePathifyCard({
           }}
         >
           <span className="dsh_imagePathify_headText">
-            <span className="dsh_imagePathify_name">{title}</span>
+            <span className="dsh_imagePathify_nameRow">
+              <span className="dsh_imagePathify_name">{title}</span>
+              {state.installedVersion.length > 0 ? (
+                <span className="dsh_imagePathify_version">
+                  v{state.installedVersion}
+                </span>
+              ) : null}
+            </span>
             <span className="dsh_imagePathify_description">
               {t("description")}
             </span>
@@ -303,26 +313,48 @@ export function ImagePathifyCard({
                 {t("visionModel")}
               </label>
               <OverrideBadges
-                overridden={state.visionModel.overridden}
+                overridden={
+                  state.visionModel.overridden ||
+                  state.disableThinking.overridden
+                }
                 disabled={disabled}
                 overriddenLabel={t("overridden")}
                 resetLabel={t("reset")}
                 onReset={() => {
                   resetField("visionModel");
+                  resetField("disableThinking");
                 }}
               />
             </div>
-            <input
-              id="plugin-config-image-pathify-model"
-              className="dsh_imagePathify_input"
-              spellCheck={false}
-              value={state.visionModel.text}
-              disabled={disabled}
-              onChange={(event) => {
-                edit("visionModel", event.target.value);
-              }}
-            />
+            <div className="dsh_imagePathify_modelRow">
+              <input
+                id="plugin-config-image-pathify-model"
+                className="dsh_imagePathify_input"
+                spellCheck={false}
+                value={state.visionModel.text}
+                disabled={disabled}
+                onChange={(event) => {
+                  edit("visionModel", event.target.value);
+                }}
+              />
+              <label className="dsh_imagePathify_inlineToggle">
+                <input
+                  type="checkbox"
+                  checked={state.disableThinking.checked}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    setDisableThinking(event.target.checked);
+                  }}
+                />
+                <span>{t("disableThinking")}</span>
+              </label>
+            </div>
             <p className="dsh_imagePathify_hint">{t("visionModelHint")}</p>
+            {state.disableThinking.checked ? null : (
+              <p className="dsh_imagePathify_hint">
+                {t("disableThinkingOffHint")}
+              </p>
+            )}
           </div>
 
           <div className="dsh_imagePathify_field">
@@ -360,64 +392,32 @@ export function ImagePathifyCard({
             <div className="dsh_imagePathify_fieldHead">
               <label
                 className="dsh_imagePathify_label"
-                htmlFor="plugin-config-image-pathify-single-max-tokens"
+                htmlFor="plugin-config-image-pathify-max-tokens"
               >
-                {t("singleMaxTokens")}
+                {t("maxTokens")}
               </label>
               <OverrideBadges
-                overridden={state.singleMaxTokens.overridden}
+                overridden={state.maxTokens.overridden}
                 disabled={disabled}
                 overriddenLabel={t("overridden")}
                 resetLabel={t("reset")}
                 onReset={() => {
-                  resetField("singleMaxTokens");
+                  resetField("maxTokens");
                 }}
               />
             </div>
             <input
-              id="plugin-config-image-pathify-single-max-tokens"
+              id="plugin-config-image-pathify-max-tokens"
               className="dsh_imagePathify_input"
               inputMode="numeric"
               spellCheck={false}
-              value={state.singleMaxTokens.text}
+              value={state.maxTokens.text}
               disabled={disabled}
               onChange={(event) => {
-                edit("singleMaxTokens", event.target.value);
+                edit("maxTokens", event.target.value);
               }}
             />
-            <p className="dsh_imagePathify_hint">{t("singleMaxTokensHint")}</p>
-          </div>
-
-          <div className="dsh_imagePathify_field">
-            <div className="dsh_imagePathify_fieldHead">
-              <label
-                className="dsh_imagePathify_label"
-                htmlFor="plugin-config-image-pathify-multi-max-tokens"
-              >
-                {t("multiMaxTokens")}
-              </label>
-              <OverrideBadges
-                overridden={state.multiMaxTokens.overridden}
-                disabled={disabled}
-                overriddenLabel={t("overridden")}
-                resetLabel={t("reset")}
-                onReset={() => {
-                  resetField("multiMaxTokens");
-                }}
-              />
-            </div>
-            <input
-              id="plugin-config-image-pathify-multi-max-tokens"
-              className="dsh_imagePathify_input"
-              inputMode="numeric"
-              spellCheck={false}
-              value={state.multiMaxTokens.text}
-              disabled={disabled}
-              onChange={(event) => {
-                edit("multiMaxTokens", event.target.value);
-              }}
-            />
-            <p className="dsh_imagePathify_hint">{t("multiMaxTokensHint")}</p>
+            <p className="dsh_imagePathify_hint">{t("maxTokensHint")}</p>
           </div>
 
           <div className="dsh_imagePathify_field">

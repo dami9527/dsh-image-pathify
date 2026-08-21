@@ -6,8 +6,7 @@ declare module "@deepseek-ai/dsh-tools" {
     readonly agent?: {
       session?: {
         requestHeader?: () =>
-          | { config?: { provider?: string; model?: string } }
-          | undefined;
+          { config?: { provider?: string; model?: string } } | undefined;
       };
       options?: { provider?: string; model?: string };
     };

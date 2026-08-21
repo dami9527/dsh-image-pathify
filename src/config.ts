@@ -7,8 +7,8 @@
 import z from "@deepseek-ai/schemastery";
 import {
   DEFAULT_API_KEY_ENV,
-  DEFAULT_MULTI_MAX_TOKENS,
-  DEFAULT_SINGLE_MAX_TOKENS,
+  DEFAULT_DISABLE_THINKING,
+  DEFAULT_MAX_TOKENS,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
   MAX_VISION_MAX_TOKENS,
@@ -34,14 +34,20 @@ export interface Config {
    * by `ctx.credentials` (`$DSH_HOME/.credentials.yaml`), not in this section.
    */
   apiKeyEnv: string;
-  /** Vision model id (default `qwen-vl-plus`). */
+  /** Vision model id (default `deepseek-v4-flash-vision-exp`). */
   visionModel: string;
   /** OpenAI-compatible vision base URL. */
   visionBaseUrl: string;
-  /** `max_tokens` for a single-image vision completion. */
-  singleMaxTokens: number;
-  /** `max_tokens` when several images share one completion. */
-  multiMaxTokens: number;
+  /**
+   * When true, DeepSeek-style endpoints get `thinking: { type: "disabled" }`.
+   * Captioning does not need a chain of thought; uncheck to let the model think.
+   */
+  disableThinking: boolean;
+  /**
+   * `max_tokens` for a vision completion (one or many images). `0` omits
+   * the field so the provider uses its own default cap.
+   */
+  maxTokens: number;
 }
 
 export const Config = z.object({
@@ -66,22 +72,23 @@ export const Config = z.object({
   relaxAdmission: z.boolean().default(true),
   /** Credential reference resolved for each vision call. */
   apiKeyEnv: z.string().role("credential-ref").default(DEFAULT_API_KEY_ENV),
-  /** Vision model id (default `qwen-vl-plus`). */
+  /** Vision model id (default `deepseek-v4-flash-vision-exp`). */
   visionModel: z.string().default(DEFAULT_VISION_MODEL),
   /** OpenAI-compatible vision base URL. */
   visionBaseUrl: z.string().default(DEFAULT_VISION_BASE_URL),
-  /** `max_tokens` for a single-image vision completion. */
-  singleMaxTokens: z
+  /**
+   * When true, DeepSeek-style endpoints get `thinking: { type: "disabled" }`.
+   * Captioning does not need a chain of thought; uncheck to let the model think.
+   */
+  disableThinking: z.boolean().default(DEFAULT_DISABLE_THINKING),
+  /**
+   * `max_tokens` for a vision completion (one or many images). `0` omits
+   * the field so the provider uses its own default cap.
+   */
+  maxTokens: z
     .number()
     .min(MIN_VISION_MAX_TOKENS)
     .max(MAX_VISION_MAX_TOKENS)
     .step(1)
-    .default(DEFAULT_SINGLE_MAX_TOKENS),
-  /** `max_tokens` when several images share one completion. */
-  multiMaxTokens: z
-    .number()
-    .min(MIN_VISION_MAX_TOKENS)
-    .max(MAX_VISION_MAX_TOKENS)
-    .step(1)
-    .default(DEFAULT_MULTI_MAX_TOKENS),
+    .default(DEFAULT_MAX_TOKENS),
 });

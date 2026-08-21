@@ -11,8 +11,8 @@ import type {
 } from "@deepseek-ai/dsh-typert-protocol";
 import {
   DEFAULT_API_KEY_ENV,
-  DEFAULT_MULTI_MAX_TOKENS,
-  DEFAULT_SINGLE_MAX_TOKENS,
+  DEFAULT_DISABLE_THINKING,
+  DEFAULT_MAX_TOKENS,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
   MAX_VISION_MAX_TOKENS,
@@ -33,8 +33,8 @@ export interface ImagePathifyPublicSettings {
   readonly apiKeyEnv: string;
   readonly visionModel: string;
   readonly visionBaseUrl: string;
-  readonly singleMaxTokens: number;
-  readonly multiMaxTokens: number;
+  readonly disableThinking: boolean;
+  readonly maxTokens: number;
   readonly models: readonly PathifyModelEntry[];
   readonly relaxAdmission: boolean;
 }
@@ -59,8 +59,8 @@ export interface ImagePathifySettingsUpdate {
   readonly apiKeyEnv?: string;
   readonly visionModel?: string;
   readonly visionBaseUrl?: string;
-  readonly singleMaxTokens?: number;
-  readonly multiMaxTokens?: number;
+  readonly disableThinking?: boolean;
+  readonly maxTokens?: number;
   readonly models?: readonly PathifyModelEntry[];
   readonly relaxAdmission?: boolean;
 }
@@ -71,8 +71,8 @@ export function defaultPublicSettings(): ImagePathifyPublicSettings {
     apiKeyEnv: DEFAULT_API_KEY_ENV,
     visionModel: DEFAULT_VISION_MODEL,
     visionBaseUrl: DEFAULT_VISION_BASE_URL,
-    singleMaxTokens: DEFAULT_SINGLE_MAX_TOKENS,
-    multiMaxTokens: DEFAULT_MULTI_MAX_TOKENS,
+    disableThinking: DEFAULT_DISABLE_THINKING,
+    maxTokens: DEFAULT_MAX_TOKENS,
     models: [],
     relaxAdmission: true,
   };
@@ -128,8 +128,8 @@ export const publicSettingsSchema: TypertSchema<ImagePathifyPublicSettings> = {
       apiKeyEnv: readString(value.apiKeyEnv, "apiKeyEnv"),
       visionModel: readString(value.visionModel, "visionModel"),
       visionBaseUrl: readString(value.visionBaseUrl, "visionBaseUrl"),
-      singleMaxTokens: readMaxTokens(value.singleMaxTokens, "singleMaxTokens"),
-      multiMaxTokens: readMaxTokens(value.multiMaxTokens, "multiMaxTokens"),
+      disableThinking: readBoolean(value.disableThinking, "disableThinking"),
+      maxTokens: readMaxTokens(value.maxTokens, "maxTokens"),
       models: modelsRaw.map(readModel),
       relaxAdmission: readBoolean(value.relaxAdmission, "relaxAdmission"),
     };
@@ -163,21 +163,18 @@ export const settingsUpdateSchema: TypertSchema<ImagePathifySettingsUpdate> = {
       ...(value.visionBaseUrl === undefined
         ? {}
         : { visionBaseUrl: readString(value.visionBaseUrl, "visionBaseUrl") }),
-      ...(value.singleMaxTokens === undefined
+      ...(value.disableThinking === undefined
         ? {}
         : {
-            singleMaxTokens: readMaxTokens(
-              value.singleMaxTokens,
-              "singleMaxTokens",
+            disableThinking: readBoolean(
+              value.disableThinking,
+              "disableThinking",
             ),
           }),
-      ...(value.multiMaxTokens === undefined
+      ...(value.maxTokens === undefined
         ? {}
         : {
-            multiMaxTokens: readMaxTokens(
-              value.multiMaxTokens,
-              "multiMaxTokens",
-            ),
+            maxTokens: readMaxTokens(value.maxTokens, "maxTokens"),
           }),
       ...(value.models === undefined
         ? {}

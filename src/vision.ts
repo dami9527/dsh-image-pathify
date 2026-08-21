@@ -10,10 +10,6 @@
 
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
-import {
-  DEFAULT_MULTI_MAX_TOKENS,
-  DEFAULT_SINGLE_MAX_TOKENS,
-} from "./defaults.ts";
 
 /** Default question when the model omits `prompt`. */
 export const DEFAULT_VISION_PROMPT = "请详细描述这张图片的内容。";
@@ -39,7 +35,7 @@ const MIME_BY_EXT: Readonly<Record<string, string>> = {
 export interface VisionRequest {
   /** Bearer token for the compatible-mode endpoint. */
   apiKey: string;
-  /** Vision model id (default `qwen-vl-plus`). */
+  /** Vision model id (default `deepseek-v4-flash-vision-exp`). */
   model: string;
   /** OpenAI-compatible base URL, with or without a trailing slash. */
   baseUrl: string;
@@ -49,8 +45,15 @@ export interface VisionRequest {
   prompt: string;
   /** Optional abort for the HTTP round-trip and file read. */
   signal?: AbortSignal;
-  /** Optional `max_tokens` override for this completion. */
+  /**
+   * Optional `max_tokens`. `0` or omitted means do not send the field.
+   */
   maxTokens?: number;
+  /**
+   * When true (default), DeepSeek-style endpoints get thinking disabled.
+   * Set false to keep the provider default (DeepSeek thinks).
+   */
+  disableThinking?: boolean;
 }
 
 /** Shared fields for a multi-image vision request. */
@@ -92,6 +95,61 @@ function completionsUrl(baseUrl: string): string {
   return `${trimmed.replace(/\/?$/, "/")}chat/completions`;
 }
 
+/**
+ * DeepSeek V4 (including `deepseek-v4-flash-vision-exp`) thinks by default.
+ * Thinking tokens count against `max_tokens`; a 1024 cap often leaves
+ * `message.content` empty. Captioning does not need a chain of thought, so
+ * the request sends `thinking: { type: "disabled" }` — the same wire field
+ * dsh-llm-deepseek uses for bounded output. Other providers must not see it.
+ */
+export function shouldDisableThinking(model: string, baseUrl: string): boolean {
+  return /deepseek/i.test(model) || /deepseek\.com/i.test(baseUrl);
+}
+
+/** PNG / JPEG / GIF / WebP magic bytes, then filename extension, then jpeg. */
+function imageSubtype(path: string, data: Uint8Array): string {
+  if (
+    data.length >= 8 &&
+    data[0] === 0x89 &&
+    data[1] === 0x50 &&
+    data[2] === 0x4e &&
+    data[3] === 0x47
+  ) {
+    return "png";
+  }
+  if (
+    data.length >= 3 &&
+    data[0] === 0xff &&
+    data[1] === 0xd8 &&
+    data[2] === 0xff
+  ) {
+    return "jpeg";
+  }
+  if (
+    data.length >= 6 &&
+    data[0] === 0x47 &&
+    data[1] === 0x49 &&
+    data[2] === 0x46
+  ) {
+    return "gif";
+  }
+  if (
+    data.length >= 12 &&
+    data[0] === 0x52 &&
+    data[1] === 0x49 &&
+    data[2] === 0x46 &&
+    data[3] === 0x46 &&
+    data[8] === 0x57 &&
+    data[9] === 0x45 &&
+    data[10] === 0x42 &&
+    data[11] === 0x50
+  ) {
+    return "webp";
+  }
+  const ext = extname(path).toLowerCase().replace(".", "");
+  return MIME_BY_EXT[ext] ?? "jpeg";
+}
+
 async function imageUrlPart(
   image: string,
   io: VisionIo,
@@ -103,8 +161,7 @@ async function imageUrlPart(
   if (isRemoteImageUrl(source)) return source;
   signal?.throwIfAborted();
   const data = await io.readFile(source, signal);
-  const ext = extname(source).toLowerCase().replace(".", "");
-  const subtype = MIME_BY_EXT[ext] ?? "jpeg";
+  const subtype = imageSubtype(source, data);
   return `data:image/${subtype};base64,${Buffer.from(data).toString("base64")}`;
 }
 
@@ -116,6 +173,21 @@ function assertVisionConfigured(apiKey: string, model: string): void {
   }
 }
 
+/** Flatten OpenAI string or text-part-array content. */
+function textFromContent(content: unknown): string {
+  if (typeof content === "string") return content.trim();
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) => {
+      if (typeof part === "string") return part;
+      if (typeof part !== "object" || part === null) return "";
+      const text = (part as { text?: unknown }).text;
+      return typeof text === "string" ? text : "";
+    })
+    .join("")
+    .trim();
+}
+
 function contentFromResponse(payload: unknown): string {
   if (typeof payload === "string") return payload;
   if (typeof payload !== "object" || payload === null) {
@@ -125,10 +197,20 @@ function contentFromResponse(payload: unknown): string {
   if (!Array.isArray(choices) || choices[0] === undefined) {
     throw new Error("Vision API returned no choices");
   }
-  const message = (choices[0] as { message?: { content?: unknown } }).message;
-  const content = message?.content;
-  if (typeof content === "string" && content.length > 0) return content;
-  throw new Error("Vision API returned an empty message");
+  const choice = choices[0] as {
+    finish_reason?: unknown;
+    message?: { content?: unknown; reasoning_content?: unknown };
+  };
+  const message = choice.message;
+  const content = textFromContent(message?.content);
+  if (content.length > 0) return content;
+  const reasoning = textFromContent(message?.reasoning_content);
+  if (reasoning.length > 0) return reasoning;
+  const finish =
+    typeof choice.finish_reason === "string" && choice.finish_reason.length > 0
+      ? ` (finish_reason=${choice.finish_reason})`
+      : "";
+  throw new Error(`Vision API returned an empty message${finish}`);
 }
 
 /**
@@ -158,7 +240,7 @@ export function formatMultiImageResult(
 }
 
 async function completeVision(
-  request: VisionBatchRequest & { maxTokens: number },
+  request: VisionBatchRequest,
   io: VisionIo,
 ): Promise<string> {
   const apiKey = request.apiKey.trim();
@@ -178,19 +260,27 @@ async function completeVision(
     })),
     { type: "text", text: request.prompt },
   ];
-  const body = JSON.stringify({
+  const body: Record<string, unknown> = {
     model,
     messages: [{ role: "user", content }],
     stream: false,
-    max_tokens: request.maxTokens,
-  });
+  };
+  if (typeof request.maxTokens === "number" && request.maxTokens > 0) {
+    body.max_tokens = request.maxTokens;
+  }
+  if (
+    (request.disableThinking ?? true) &&
+    shouldDisableThinking(model, request.baseUrl)
+  ) {
+    body.thinking = { type: "disabled" };
+  }
   const response = await io.fetch(completionsUrl(request.baseUrl), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body,
+    body: JSON.stringify(body),
     signal: request.signal,
   });
   const text = await response.text();
@@ -223,8 +313,9 @@ export async function analyzeImage(
       baseUrl: request.baseUrl,
       prompt: request.prompt,
       signal: request.signal,
+      disableThinking: request.disableThinking,
       images: [request.image],
-      maxTokens: request.maxTokens ?? DEFAULT_SINGLE_MAX_TOKENS,
+      maxTokens: request.maxTokens,
     },
     io,
   );
@@ -248,7 +339,6 @@ export async function analyzeImages(
     {
       ...request,
       prompt: multiImagePrompt(request.images.length, request.prompt),
-      maxTokens: request.maxTokens ?? DEFAULT_MULTI_MAX_TOKENS,
     },
     io,
   );

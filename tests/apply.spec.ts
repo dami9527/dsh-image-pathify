@@ -5,8 +5,7 @@ import { Context, symbols } from "@deepseek-ai/cordis";
 import type { Config } from "../src/config.ts";
 import {
   DEFAULT_API_KEY_ENV,
-  DEFAULT_MULTI_MAX_TOKENS,
-  DEFAULT_SINGLE_MAX_TOKENS,
+  DEFAULT_MAX_TOKENS,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "../src/defaults.ts";
@@ -41,8 +40,8 @@ function sample(overrides: Partial<Config> = {}): Config {
     apiKeyEnv: DEFAULT_API_KEY_ENV,
     visionModel: DEFAULT_VISION_MODEL,
     visionBaseUrl: DEFAULT_VISION_BASE_URL,
-    singleMaxTokens: DEFAULT_SINGLE_MAX_TOKENS,
-    multiMaxTokens: DEFAULT_MULTI_MAX_TOKENS,
+    disableThinking: true,
+    maxTokens: DEFAULT_MAX_TOKENS,
     ...overrides,
   };
 }
@@ -87,7 +86,7 @@ describe("analyze_image live settings", () => {
       ) {
         let value = sample({
           ...options?.base,
-          visionModel: "qwen-vl-plus",
+          visionModel: DEFAULT_VISION_MODEL,
         });
         return {
           get: () => value,
@@ -154,7 +153,7 @@ describe("analyze_image live settings", () => {
       ) {
         const value = sample({
           ...options?.base,
-          visionModel: "qwen-vl-plus",
+          visionModel: DEFAULT_VISION_MODEL,
         });
         return {
           get: () => value,
@@ -200,10 +199,10 @@ describe("analyze_image live settings", () => {
     const parts = body.messages[0]?.content ?? [];
     expect(parts.filter((part) => part.type === "image_url")).toHaveLength(2);
     expect(parts.at(-1)?.text).toContain("以下共 2 张图片");
-    expect(body.max_tokens).toBe(DEFAULT_MULTI_MAX_TOKENS);
+    expect(body.max_tokens).toBe(DEFAULT_MAX_TOKENS);
   });
 
-  it("uses the configured single-image max_tokens", async () => {
+  it("uses the configured max_tokens", async () => {
     const ctx = new Context();
     contexts.push(ctx);
 
@@ -231,7 +230,7 @@ describe("analyze_image live settings", () => {
       ) {
         const value = sample({
           ...options?.base,
-          singleMaxTokens: 2048,
+          maxTokens: 4096,
         });
         return {
           get: () => value,
@@ -264,7 +263,7 @@ describe("analyze_image live settings", () => {
     const body = JSON.parse(String(fetchCall![1]?.body)) as {
       max_tokens: number;
     };
-    expect(body.max_tokens).toBe(2048);
+    expect(body.max_tokens).toBe(4096);
   });
 });
 

@@ -48,11 +48,25 @@ export const cssText = `
   flex-direction: column;
   gap: 4px;
 }
+.dsh_imagePathify_nameRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
 .dsh_imagePathify_name {
   font-size: 15px;
   font-weight: 600;
   line-height: 1.4;
   color: var(--dsw-alias-label-primary);
+}
+.dsh_imagePathify_version {
+  flex: none;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
 }
 .dsh_imagePathify_description {
   font-size: 13px;
@@ -253,6 +267,37 @@ export const cssText = `
   flex: 1 1 0;
   min-width: 0;
 }
+.dsh_imagePathify_modelRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.dsh_imagePathify_modelRow > .dsh_imagePathify_input {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+}
+.dsh_imagePathify_inlineToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-left: auto;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dsh_imagePathify_inlineToggle input {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--dsw-alias-brand-primary);
+  cursor: pointer;
+}
 .dsh_imagePathify_addButton {
   display: inline-flex;
   align-items: center;
@@ -292,7 +337,7 @@ export const cssText = `
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--dsw-alias-label-error);
+  color: var(--dsw-alias-state-error-primary);
 }
 .dsh_imagePathify_discard,
 .dsh_imagePathify_save {

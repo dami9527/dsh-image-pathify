@@ -14,8 +14,7 @@ import type {
 import { defaultPublicSettings } from "../contract.ts";
 import {
   DEFAULT_API_KEY_ENV,
-  DEFAULT_MULTI_MAX_TOKENS,
-  DEFAULT_SINGLE_MAX_TOKENS,
+  DEFAULT_MAX_TOKENS,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
   MAX_VISION_MAX_TOKENS,
@@ -53,10 +52,12 @@ export interface ImagePathifyCardState {
   apiKeyWritable: boolean;
   visionModel: CardFieldState;
   visionBaseUrl: CardFieldState;
-  singleMaxTokens: CardFieldState;
-  multiMaxTokens: CardFieldState;
+  disableThinking: { checked: boolean; overridden: boolean };
+  maxTokens: CardFieldState;
   relaxAdmission: { checked: boolean; overridden: boolean };
   models: { entries: readonly PathifyModelEntry[]; overridden: boolean };
+  /** Installed plugin version from the host probe; empty until it lands. */
+  installedVersion: string;
   update:
     | {
         installedVersion: string;
@@ -72,6 +73,7 @@ export interface ImagePathifyCardActions {
   resetField: (field: string) => void;
   save: () => void;
   discard: () => void;
+  setDisableThinking: (value: boolean) => void;
   setRelaxAdmission: (value: boolean) => void;
   addModel: (provider: string, model: string) => void;
   removeModel: (provider: string, model: string) => void;
@@ -112,8 +114,8 @@ function refOf(settings: ImagePathifyPublicSettings): string {
 }
 
 /**
- * Parse a max-tokens field. Empty uses `fallback`. Non-integers and values
- * outside 1…32768 are invalid (`undefined`).
+ * Parse a max-tokens field. Empty uses `fallback`. `0` is valid and means
+ * omit `max_tokens`. Non-integers and values outside 0…32768 are invalid.
  */
 export function parseMaxTokens(
   text: string,
@@ -121,7 +123,7 @@ export function parseMaxTokens(
 ): number | undefined {
   const trimmed = text.trim();
   if (trimmed.length === 0) return fallback;
-  if (!/^[1-9]\d*$/.test(trimmed)) return undefined;
+  if (!/^(0|[1-9]\d*)$/.test(trimmed)) return undefined;
   const n = Number(trimmed);
   if (n > MAX_VISION_MAX_TOKENS) return undefined;
   return n;
@@ -136,11 +138,12 @@ export class ImagePathifyCardController {
   private apiKeyDraft: string | undefined;
   private visionModelDraft: string | undefined;
   private visionBaseUrlDraft: string | undefined;
-  private singleMaxTokensDraft: string | undefined;
-  private multiMaxTokensDraft: string | undefined;
+  private disableThinkingDraft: boolean | undefined;
+  private maxTokensDraft: string | undefined;
   private relaxDraft: boolean | undefined;
   private modelsDraft: PathifyModelEntry[] | undefined;
   private credential = { ref: "", configured: false, writable: true };
+  private installedVersion = "";
   private update:
     | {
         installedVersion: string;
@@ -175,22 +178,24 @@ export class ImagePathifyCardController {
   /** Hide the card while the Remote is down. */
   markUnavailable(): void {
     this.available = false;
+    this.installedVersion = "";
     this.update = undefined;
     this.publish();
   }
 
   /**
-   * Apply a host npm-probe result. Only an available update is kept; a
-   * failed or current-version probe clears the header banner.
+   * Apply a host npm-probe result. The installed version is always kept for
+   * the title; the upgrade banner is only kept when an update is available.
    */
   receiveUpdate(status: ImagePathifyUpdateStatus): void {
+    this.installedVersion = status.installedVersion.trim();
     this.update =
       status.updateAvailable &&
-      status.installedVersion.length > 0 &&
+      this.installedVersion.length > 0 &&
       status.latestVersion.length > 0 &&
       status.command.length > 0
         ? {
-            installedVersion: status.installedVersion,
+            installedVersion: this.installedVersion,
             latestVersion: status.latestVersion,
             command: status.command,
           }
@@ -253,6 +258,9 @@ export class ImagePathifyCardController {
       discard: () => {
         this.discard();
       },
+      setDisableThinking: (value) => {
+        this.setDisableThinking(value);
+      },
       setRelaxAdmission: (value) => {
         this.setRelaxAdmission(value);
       },
@@ -268,27 +276,19 @@ export class ImagePathifyCardController {
   private projection(): ImagePathifyCardState {
     const visionModel = this.visionModelDraft ?? this.stored.visionModel;
     const visionBaseUrl = this.visionBaseUrlDraft ?? this.stored.visionBaseUrl;
-    const singleMaxTokensText =
-      this.singleMaxTokensDraft ?? String(this.stored.singleMaxTokens);
-    const multiMaxTokensText =
-      this.multiMaxTokensDraft ?? String(this.stored.multiMaxTokens);
+    const disableThinking =
+      this.disableThinkingDraft ?? this.stored.disableThinking;
+    const maxTokensText = this.maxTokensDraft ?? String(this.stored.maxTokens);
     const relax = this.relaxDraft ?? this.stored.relaxAdmission;
     const models = this.modelsDraft ?? this.stored.models;
     const resolvedModel = this.effectiveModel(visionModel);
     const resolvedUrl = this.effectiveUrl(visionBaseUrl);
-    const resolvedSingle = parseMaxTokens(
-      singleMaxTokensText,
-      DEFAULT_SINGLE_MAX_TOKENS,
-    );
-    const resolvedMulti = parseMaxTokens(
-      multiMaxTokensText,
-      DEFAULT_MULTI_MAX_TOKENS,
-    );
+    const resolvedMaxTokens = parseMaxTokens(maxTokensText, DEFAULT_MAX_TOKENS);
     return {
       available: this.available,
       writable: true,
       dirty: this.isDirty(),
-      invalid: resolvedSingle === undefined || resolvedMulti === undefined,
+      invalid: resolvedMaxTokens === undefined,
       saving: this.saving,
       failed: this.failed,
       apiKeyText: this.apiKeyDraft ?? "",
@@ -302,17 +302,15 @@ export class ImagePathifyCardController {
         text: visionBaseUrl,
         overridden: resolvedUrl !== DEFAULT_VISION_BASE_URL,
       },
-      singleMaxTokens: {
-        text: singleMaxTokensText,
-        overridden:
-          resolvedSingle !== undefined &&
-          resolvedSingle !== DEFAULT_SINGLE_MAX_TOKENS,
+      disableThinking: {
+        checked: disableThinking,
+        overridden: disableThinking !== DEFAULTS.disableThinking,
       },
-      multiMaxTokens: {
-        text: multiMaxTokensText,
+      maxTokens: {
+        text: maxTokensText,
         overridden:
-          resolvedMulti !== undefined &&
-          resolvedMulti !== DEFAULT_MULTI_MAX_TOKENS,
+          resolvedMaxTokens !== undefined &&
+          resolvedMaxTokens !== DEFAULT_MAX_TOKENS,
       },
       relaxAdmission: {
         checked: relax,
@@ -322,6 +320,7 @@ export class ImagePathifyCardController {
         entries: models,
         overridden: !modelsEqual(models, DEFAULTS.models),
       },
+      installedVersion: this.installedVersion,
       update: this.update,
     };
   }
@@ -344,8 +343,13 @@ export class ImagePathifyCardController {
     ) {
       return true;
     }
-    if (this.tokenDraftDirty("single")) return true;
-    if (this.tokenDraftDirty("multi")) return true;
+    if (this.tokenDraftDirty()) return true;
+    if (
+      this.disableThinkingDraft !== undefined &&
+      this.disableThinkingDraft !== this.stored.disableThinking
+    ) {
+      return true;
+    }
     if (
       this.relaxDraft !== undefined &&
       this.relaxDraft !== this.stored.relaxAdmission
@@ -371,18 +375,10 @@ export class ImagePathifyCardController {
     return trimmed === "" ? DEFAULT_VISION_BASE_URL : trimmed;
   }
 
-  private tokenDraftDirty(kind: "single" | "multi"): boolean {
-    const draft =
-      kind === "single" ? this.singleMaxTokensDraft : this.multiMaxTokensDraft;
-    if (draft === undefined) return false;
-    const fallback =
-      kind === "single" ? DEFAULT_SINGLE_MAX_TOKENS : DEFAULT_MULTI_MAX_TOKENS;
-    const stored =
-      kind === "single"
-        ? this.stored.singleMaxTokens
-        : this.stored.multiMaxTokens;
-    const parsed = parseMaxTokens(draft, fallback);
-    return parsed === undefined || parsed !== stored;
+  private tokenDraftDirty(): boolean {
+    if (this.maxTokensDraft === undefined) return false;
+    const parsed = parseMaxTokens(this.maxTokensDraft, DEFAULT_MAX_TOKENS);
+    return parsed === undefined || parsed !== this.stored.maxTokens;
   }
 
   private edit(field: string, text: string): void {
@@ -393,10 +389,8 @@ export class ImagePathifyCardController {
       this.visionModelDraft = text;
     } else if (field === "visionBaseUrl") {
       this.visionBaseUrlDraft = text;
-    } else if (field === "singleMaxTokens") {
-      this.singleMaxTokensDraft = text;
-    } else if (field === "multiMaxTokens") {
-      this.multiMaxTokensDraft = text;
+    } else if (field === "maxTokens") {
+      this.maxTokensDraft = text;
     }
     this.publish();
   }
@@ -406,13 +400,19 @@ export class ImagePathifyCardController {
     if (field === "visionModel") this.visionModelDraft = DEFAULT_VISION_MODEL;
     else if (field === "visionBaseUrl") {
       this.visionBaseUrlDraft = DEFAULT_VISION_BASE_URL;
-    } else if (field === "singleMaxTokens") {
-      this.singleMaxTokensDraft = String(DEFAULT_SINGLE_MAX_TOKENS);
-    } else if (field === "multiMaxTokens") {
-      this.multiMaxTokensDraft = String(DEFAULT_MULTI_MAX_TOKENS);
+    } else if (field === "disableThinking") {
+      this.disableThinkingDraft = DEFAULTS.disableThinking;
+    } else if (field === "maxTokens") {
+      this.maxTokensDraft = String(DEFAULT_MAX_TOKENS);
     } else if (field === "relaxAdmission") {
       this.relaxDraft = DEFAULTS.relaxAdmission;
     } else if (field === "models") this.modelsDraft = [];
+    this.publish();
+  }
+
+  private setDisableThinking(value: boolean): void {
+    this.failed = false;
+    this.disableThinkingDraft = value;
     this.publish();
   }
 
@@ -451,8 +451,8 @@ export class ImagePathifyCardController {
     this.apiKeyDraft = undefined;
     this.visionModelDraft = undefined;
     this.visionBaseUrlDraft = undefined;
-    this.singleMaxTokensDraft = undefined;
-    this.multiMaxTokensDraft = undefined;
+    this.disableThinkingDraft = undefined;
+    this.maxTokensDraft = undefined;
     this.relaxDraft = undefined;
     this.modelsDraft = undefined;
     this.failed = false;
@@ -463,8 +463,8 @@ export class ImagePathifyCardController {
     const update: {
       visionModel?: string;
       visionBaseUrl?: string;
-      singleMaxTokens?: number;
-      multiMaxTokens?: number;
+      disableThinking?: boolean;
+      maxTokens?: number;
       relaxAdmission?: boolean;
       models?: PathifyModelEntry[];
     } = {};
@@ -483,26 +483,18 @@ export class ImagePathifyCardController {
       update.visionBaseUrl = visionBaseUrl;
       dirty = true;
     }
-    const singleMaxTokens = parseMaxTokens(
-      this.singleMaxTokensDraft ?? String(this.stored.singleMaxTokens),
-      DEFAULT_SINGLE_MAX_TOKENS,
-    );
-    if (
-      singleMaxTokens !== undefined &&
-      singleMaxTokens !== this.stored.singleMaxTokens
-    ) {
-      update.singleMaxTokens = singleMaxTokens;
+    const disableThinking =
+      this.disableThinkingDraft ?? this.stored.disableThinking;
+    if (disableThinking !== this.stored.disableThinking) {
+      update.disableThinking = disableThinking;
       dirty = true;
     }
-    const multiMaxTokens = parseMaxTokens(
-      this.multiMaxTokensDraft ?? String(this.stored.multiMaxTokens),
-      DEFAULT_MULTI_MAX_TOKENS,
+    const maxTokens = parseMaxTokens(
+      this.maxTokensDraft ?? String(this.stored.maxTokens),
+      DEFAULT_MAX_TOKENS,
     );
-    if (
-      multiMaxTokens !== undefined &&
-      multiMaxTokens !== this.stored.multiMaxTokens
-    ) {
-      update.multiMaxTokens = multiMaxTokens;
+    if (maxTokens !== undefined && maxTokens !== this.stored.maxTokens) {
+      update.maxTokens = maxTokens;
       dirty = true;
     }
     const relax = this.relaxDraft ?? this.stored.relaxAdmission;
@@ -546,8 +538,8 @@ export class ImagePathifyCardController {
       this.apiKeyDraft = undefined;
       this.visionModelDraft = undefined;
       this.visionBaseUrlDraft = undefined;
-      this.singleMaxTokensDraft = undefined;
-      this.multiMaxTokensDraft = undefined;
+      this.disableThinkingDraft = undefined;
+      this.maxTokensDraft = undefined;
       this.relaxDraft = undefined;
       this.modelsDraft = undefined;
     } else {

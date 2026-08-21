@@ -8,8 +8,8 @@ import {
 } from "../src/client/card-form.ts";
 import {
   DEFAULT_API_KEY_ENV,
-  DEFAULT_MULTI_MAX_TOKENS,
-  DEFAULT_SINGLE_MAX_TOKENS,
+  DEFAULT_MAX_TOKENS,
+  DEFAULT_VISION_MODEL,
 } from "../src/defaults.ts";
 
 function sample(
@@ -62,7 +62,9 @@ describe("ImagePathifyCardController", () => {
     expect(card.snapshot.getSnapshot().visionModel.overridden).toBe(true);
     actions.discard();
     expect(card.snapshot.getSnapshot().dirty).toBe(false);
-    expect(card.snapshot.getSnapshot().visionModel.text).toBe("qwen-vl-plus");
+    expect(card.snapshot.getSnapshot().visionModel.text).toBe(
+      DEFAULT_VISION_MODEL,
+    );
   });
 
   it("treats an emptied endpoint as the default URL", () => {
@@ -126,10 +128,11 @@ describe("ImagePathifyCardController", () => {
     expect(card.snapshot.getSnapshot().dirty).toBe(false);
   });
 
-  it("keeps an available update on the header snapshot and clears a no-op probe", () => {
+  it("keeps the installed version after a no-op probe and only banners available updates", () => {
     const card = new ImagePathifyCardController(async () => sample());
     card.receive(sample());
     expect(card.snapshot.getSnapshot().update).toBeUndefined();
+    expect(card.snapshot.getSnapshot().installedVersion).toBe("");
     card.receiveUpdate({
       installedVersion: "0.1.0",
       latestVersion: "0.1.1",
@@ -141,6 +144,7 @@ describe("ImagePathifyCardController", () => {
       latestVersion: "0.1.1",
       command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
     });
+    expect(card.snapshot.getSnapshot().installedVersion).toBe("0.1.0");
     card.receiveUpdate({
       installedVersion: "0.1.1",
       latestVersion: "0.1.1",
@@ -148,43 +152,67 @@ describe("ImagePathifyCardController", () => {
       command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
     });
     expect(card.snapshot.getSnapshot().update).toBeUndefined();
+    expect(card.snapshot.getSnapshot().installedVersion).toBe("0.1.1");
+    card.markUnavailable();
+    expect(card.snapshot.getSnapshot().installedVersion).toBe("");
+    expect(card.snapshot.getSnapshot().update).toBeUndefined();
   });
 
   it("stages max-token edits and restores the defaults", async () => {
     const write = vi.fn(async (update) =>
       sample({
-        singleMaxTokens: update.singleMaxTokens ?? sample().singleMaxTokens,
-        multiMaxTokens: update.multiMaxTokens ?? sample().multiMaxTokens,
+        maxTokens: update.maxTokens ?? sample().maxTokens,
       }),
     );
     const card = new ImagePathifyCardController(write);
     card.receive(sample());
     const actions = card.inject();
-    expect(card.snapshot.getSnapshot().singleMaxTokens.text).toBe(
-      String(DEFAULT_SINGLE_MAX_TOKENS),
+    expect(card.snapshot.getSnapshot().maxTokens.text).toBe(
+      String(DEFAULT_MAX_TOKENS),
     );
-    expect(card.snapshot.getSnapshot().singleMaxTokens.overridden).toBe(false);
-    actions.edit("singleMaxTokens", "2048");
-    actions.edit("multiMaxTokens", "8192");
+    expect(card.snapshot.getSnapshot().maxTokens.overridden).toBe(false);
+    actions.edit("maxTokens", "4096");
     expect(card.snapshot.getSnapshot().dirty).toBe(true);
     expect(card.snapshot.getSnapshot().invalid).toBe(false);
-    expect(card.snapshot.getSnapshot().singleMaxTokens.overridden).toBe(true);
+    expect(card.snapshot.getSnapshot().maxTokens.overridden).toBe(true);
     await card.save();
     expect(write).toHaveBeenCalledWith({
-      singleMaxTokens: 2048,
-      multiMaxTokens: 8192,
+      maxTokens: 4096,
     });
-    actions.resetField("singleMaxTokens");
-    expect(card.snapshot.getSnapshot().singleMaxTokens.text).toBe(
-      String(DEFAULT_SINGLE_MAX_TOKENS),
+    actions.resetField("maxTokens");
+    expect(card.snapshot.getSnapshot().maxTokens.text).toBe(
+      String(DEFAULT_MAX_TOKENS),
     );
   });
 
-  it("blocks save when a max-tokens field is not a positive integer", () => {
+  it("stages disable-thinking and treats 0 as a valid cap", async () => {
+    const write = vi.fn(async (update) =>
+      sample({
+        disableThinking: update.disableThinking ?? sample().disableThinking,
+        maxTokens: update.maxTokens ?? sample().maxTokens,
+      }),
+    );
+    const card = new ImagePathifyCardController(write);
+    card.receive(sample());
+    const actions = card.inject();
+    expect(card.snapshot.getSnapshot().disableThinking.checked).toBe(true);
+    actions.setDisableThinking(false);
+    actions.edit("maxTokens", "0");
+    expect(card.snapshot.getSnapshot().dirty).toBe(true);
+    expect(card.snapshot.getSnapshot().invalid).toBe(false);
+    expect(card.snapshot.getSnapshot().disableThinking.checked).toBe(false);
+    await card.save();
+    expect(write).toHaveBeenCalledWith({
+      disableThinking: false,
+      maxTokens: 0,
+    });
+  });
+
+  it("blocks save when a max-tokens field is not an integer cap", () => {
     const card = new ImagePathifyCardController(async () => sample());
     card.receive(sample());
     const actions = card.inject();
-    actions.edit("singleMaxTokens", "abc");
+    actions.edit("maxTokens", "abc");
     expect(card.snapshot.getSnapshot().invalid).toBe(true);
     expect(card.snapshot.getSnapshot().dirty).toBe(true);
   });
@@ -192,11 +220,9 @@ describe("ImagePathifyCardController", () => {
 
 describe("parseMaxTokens", () => {
   it("treats empty as the fallback and rejects junk", () => {
-    expect(parseMaxTokens("  ", DEFAULT_SINGLE_MAX_TOKENS)).toBe(
-      DEFAULT_SINGLE_MAX_TOKENS,
-    );
-    expect(parseMaxTokens("2048", DEFAULT_SINGLE_MAX_TOKENS)).toBe(2048);
-    expect(parseMaxTokens("0", DEFAULT_SINGLE_MAX_TOKENS)).toBeUndefined();
-    expect(parseMaxTokens("abc", DEFAULT_MULTI_MAX_TOKENS)).toBeUndefined();
+    expect(parseMaxTokens("  ", DEFAULT_MAX_TOKENS)).toBe(DEFAULT_MAX_TOKENS);
+    expect(parseMaxTokens("4096", DEFAULT_MAX_TOKENS)).toBe(4096);
+    expect(parseMaxTokens("0", DEFAULT_MAX_TOKENS)).toBe(0);
+    expect(parseMaxTokens("abc", DEFAULT_MAX_TOKENS)).toBeUndefined();
   });
 });

@@ -32,8 +32,7 @@ export const READ_IMAGE_TOOL = "read_image";
 export interface RouteSource {
   session?: {
     requestHeader?: () =>
-      | { config?: { provider?: string; model?: string } }
-      | undefined;
+      { config?: { provider?: string; model?: string } } | undefined;
   };
   options?: { provider?: string; model?: string };
 }

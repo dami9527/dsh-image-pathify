@@ -182,6 +182,15 @@ describe("dsh-image-pathify client apply", () => {
     expect(card.inject().hooks.imagePathifyCard.getSnapshot().available).toBe(
       true,
     );
+    await expect
+      .poll(
+        () =>
+          card.inject().hooks.imagePathifyCard.getSnapshot().installedVersion,
+      )
+      .toBe("0.1.1");
+    expect(card.inject().hooks.imagePathifyCard.getSnapshot().update).toBe(
+      undefined,
+    );
   });
 
   it("writes staged settings through the Remote on save", async () => {
@@ -242,6 +251,10 @@ describe("dsh-image-pathify client apply", () => {
         latestVersion: "0.1.1",
         command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
       });
+    expect(
+      pluginCard(booted).inject().hooks.imagePathifyCard.getSnapshot()
+        .installedVersion,
+    ).toBe("0.1.0");
     expect(booted.getUpdate).toHaveBeenCalled();
   });
 });

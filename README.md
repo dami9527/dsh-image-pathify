@@ -26,10 +26,11 @@ dsh web
 打开 **设置 → 插件 → 识图**，填写后点保存：
 
 - API 密钥（写入 `$DSH_HOME/.credentials.yaml`，不进设置文件）
-- 识图模型（默认 `qwen-vl-plus`）
-- 识图 API 地址（默认阿里云 DashScope compatible-mode）
+- 识图模型（默认 `deepseek-v4-flash-vision-exp`）
+- 识图 API 地址（默认 `https://api.deepseek.com`）
+- **禁用思考**（默认勾选）。部分模型如 deepseek-v4-flash-vision-exp 默认会思考，思考 token 计入输出上限；取消勾选才会走思考模式，开启思考时应增大输出上限
 
-任何 OpenAI 兼容的视觉接口都可以，把地址和模型改成你的服务即可。设置页改动保存后立即生效，不用重启。
+任何 OpenAI 兼容的视觉接口都可以，把地址(部分地址需要后面加/v1)和模型改成你的服务即可。设置页改动保存后立即生效，不用重启。
 
 ![设置 → 插件 → 识图](assets/settings.png)
 
@@ -48,15 +49,13 @@ dsh plugin --profile web add dsh-image-pathify@version
 
 再启动 `dsh web`
 
-插件不会自动改你机器上的包。查询失败或已是最新时，卡片上不显示任何提示。
-
 ## 怎么确认可用
 
 1. 设置 → 插件里出现 **识图** 卡片
 2. 给不能看图的模型发一张图：界面里缩略图还在；模型调用 `analyze_image` 而不是 `read_image`
-3. 给不能看图的模型发本地图片路径或图片URL：应直接调用 `analyze_image`，不要先 `read_image`
+3. 给不能看图的模型发本地图片路径或图片URL：应直接调用 `analyze_image`，不会先 `read_image`
 4. 给能看图的模型发一张图：模型直接回答，不调用 `analyze_image`
-5. 给能看图的模型发本地图片路径或图片URL：应直接调用 `read_image`，不要先 `analyze_image`
+5. 给能看图的模型发本地图片路径或图片URL：应直接调用 `read_image`，不会先 `analyze_image`
 
 ![给不能看图的模型发图，模型调用 analyze_image](assets/example.png)
 
@@ -64,26 +63,45 @@ dsh plugin --profile web add dsh-image-pathify@version
 
 设置页保存后立即生效。识图字段写在 `$DSH_HOME/settings.yaml` 的 `image-pathify` 段；API 密钥写在 `$DSH_HOME/.credentials.yaml`，不进设置文件。
 
-| 选项              | 默认                                                | 做什么                                                               |
-| ----------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
-| `apiKeyEnv`       | `IMAGE_PATHIFY_API_KEY`                             | 凭据引用名。密钥本身写在 `$DSH_HOME/.credentials.yaml`，不进设置文件 |
-| `visionModel`     | `qwen-vl-plus`                                      | 识图模型 id                                                          |
-| `visionBaseUrl`   | `https://dashscope.aliyuncs.com/compatible-mode/v1` | OpenAI 兼容基址                                                      |
-| `singleMaxTokens` | `1024`                                              | 一张图时视觉模型最多能写多长。截图细节不够可调大                     |
-| `multiMaxTokens`  | `4096`                                              | 一次识别多张图时的输出上限。描述被截断可调大                         |
-| `models`          | 空 = 全部不能看图的模型                             | 只决定**哪些模型允许你发图**。空 = 都能发。填了就只放行名单里的模型  |
-| `relaxAdmission`  | `true`                                              | 允许给不能看图的模型发图。关闭后按模型能力拒绝贴图                   |
+| 选项              | 默认                           | 做什么                                                                                                                                               |
+| ----------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apiKeyEnv`       | `IMAGE_PATHIFY_API_KEY`        | 凭据引用名。密钥本身写在 `$DSH_HOME/.credentials.yaml`，不进设置文件                                                                                 |
+| `visionModel`     | `deepseek-v4-flash-vision-exp` | 识图模型 id。                                                                                                                                        |
+| `visionBaseUrl`   | `https://api.deepseek.com`     | OpenAI 兼容基址。(部分地址需要后面加/v1)                                                                                                             |
+| `disableThinking` | `true`                         | 默认勾选。仅 DeepSeek 等支持 `thinking` 的接口会带上该字段，如果需要思考和详细输出请取消勾选，并增大输出上限，防止输出内容被截断(思考也会占用tokens) |
+| `maxTokens`       | `2048`                         | 输出上限。`0` = 不传 `max_tokens`(不传时各家默认值处理方式并不统一)                                                                                  |
+| `models`          | 空 = 全部不能看图的模型        | 只决定**哪些模型允许发图**。空 = 都能发。填了就只放行名单里的模型                                                                                    |
+| `relaxAdmission`  | `true`                         | 允许给不能看图的模型发图。关闭后按模型能力拒绝贴图                                                                                                   |
 
-只允许 deepseek-v4-flash 发图的例子：
+`apiKeyEnv` 未配置时默认指向 `IMAGE_PATHIFY_API_KEY`, 将 API Key 指向官方环境变量的例子：
+
+```yaml
+image-pathify:
+  visionModel: deepseek-v4-flash-vision-exp
+  visionBaseUrl: https://api.deepseek.com
+  apiKeyEnv: DEEPSEEK_API_KEY
+```
+
+只允许 deepseek-v4 发图的例子：
 
 ```yaml
 image-pathify:
   models:
     - provider: deepseek-official
       model: deepseek-v4-flash
+    - provider: deepseek-official
+      model: deepseek-v4-pro
 ```
 
-模型侧只多一个工具 `analyze_image`（仅不能看图的模型能看见、能调用）。
+用千问 DashScope 识图：
+
+```yaml
+image-pathify:
+  visionModel: qwen-vl-plus
+  visionBaseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+```
+
+模型侧只多一个工具 `analyze_image`（仅不能看图的模型能看见、能调用，防止与具备识图能力的模型冲突）。
 
 - 一张图：`image` 填本地绝对路径或 `http(s)` 图片 URL（不要带路径前缀）
 - 多张图：用 `images` 一次传入全部路径，插件会在**同一次**视觉请求里带上所有图片，不必一张一张等

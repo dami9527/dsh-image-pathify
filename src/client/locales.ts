@@ -14,7 +14,7 @@ export const zh = {
   save: "保存",
   saving: "保存中…",
   discard: "放弃修改",
-  saveFailed: "本部署没有接受这些值，已保留供你修改。",
+  saveFailed: "保存失败，修改已保留，请检查后重试。",
   overridden: "已覆盖",
   reset: "恢复默认",
   apiKey: "API Key",
@@ -22,15 +22,17 @@ export const zh = {
   apiKeySet: "已配置密钥。",
   apiKeyUnset: "未配置密钥；配置之前插件不可识图。",
   visionModel: "识图模型",
-  visionModelHint: "例如千问/智普/小米等能够识图的模型，留空则使用默认模型。",
+  visionModelHint:
+    "默认 deepseek-v4-flash-vision-exp。也可填千问/智谱等 OpenAI 兼容识图模型。",
+  disableThinking: "禁用思考",
+  disableThinkingOffHint:
+    "思考会占用输出额度，请增大输出上限，或填 0 不传 max_tokens。",
   visionBaseUrl: "接口地址",
-  visionBaseUrlHint: "任何 OpenAI 兼容格式 URL，留空则使用默认地址。",
-  singleMaxTokens: "单图输出上限",
-  singleMaxTokensHint:
-    "一张图时视觉模型最多能写多长。截图细节不够可调大，留空则使用默认值。",
-  multiMaxTokens: "多图输出上限",
-  multiMaxTokensHint:
-    "一次识别多张图时的输出上限。描述被截断可调大，留空则使用默认值。",
+  visionBaseUrlHint:
+    "默认 https://api.deepseek.com。支持任何 OpenAI 兼容格式 URL(部分地址需要后面加/v1)。",
+  maxTokens: "输出上限",
+  maxTokensHint:
+    "视觉模型输出上限，填 0 表示不传 max_tokens，响应被截断可调大。",
   relaxAdmission: "允许给不能看图的模型发图",
   relaxAdmissionHint: "关闭后按模型能力拒绝贴图。",
   models: "放行的模型",
@@ -59,8 +61,7 @@ export const en = {
   save: "Save",
   saving: "Saving…",
   discard: "Discard",
-  saveFailed:
-    "The deployment did not accept these values; they were left for you to correct.",
+  saveFailed: "Save failed. Your edits were kept — check them and try again.",
   overridden: "Overridden",
   reset: "Reset to default",
   apiKey: "API key",
@@ -70,16 +71,16 @@ export const en = {
   apiKeyUnset: "No key is configured; vision is unavailable until one is.",
   visionModel: "Vision model",
   visionModelHint:
-    "For example Qwen/GLM/Xiaomi or other vision-capable models. Leave blank to use the default.",
+    "Default is deepseek-v4-flash-vision-exp. You can also use Qwen, GLM, or other OpenAI-compatible vision models.",
+  disableThinking: "Disable thinking",
+  disableThinkingOffHint:
+    "Thinking consumes the output budget. Raise the cap, or set it to 0 to omit max_tokens.",
   visionBaseUrl: "Endpoint",
   visionBaseUrlHint:
-    "Any OpenAI-compatible URL. Leave blank to use the default.",
-  singleMaxTokens: "Single-image output cap",
-  singleMaxTokensHint:
-    "How long the vision model may write for one image. Raise this if screenshot details get cut off. Leave blank for the default.",
-  multiMaxTokens: "Multi-image output cap",
-  multiMaxTokensHint:
-    "Output cap when several images share one request. Raise this if descriptions are truncated. Leave blank for the default.",
+    "Default is https://api.deepseek.com. Any OpenAI-compatible URL (some addresses need /v1 appended).",
+  maxTokens: "Output cap",
+  maxTokensHint:
+    "Vision model output cap. Set 0 to omit max_tokens. Raise this if the response is truncated.",
   relaxAdmission: "Allow images on text-only models",
   relaxAdmissionHint: "Turn off to reject pasted images by model capability.",
   models: "Allowed models",
