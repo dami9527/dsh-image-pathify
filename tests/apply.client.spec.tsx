@@ -75,6 +75,10 @@ async function boot(options: BootOptions = {}) {
       })),
   );
   const credentials = new Map<string, string>();
+  const credentialListeners = new Map<
+    string,
+    Array<(...args: never[]) => void>
+  >();
   const describeCredentials = vi.fn(async ({ refs }: { refs: string[] }) => ({
     result: {
       ok: true as const,
@@ -97,7 +101,22 @@ async function boot(options: BootOptions = {}) {
       return { result: { ok: true as const, value: {} } };
     },
   );
-  ctx.provide("remote", { $mount: mount, $on: vi.fn(() => () => {}) });
+  const onRemote = vi.fn(
+    (event: string, listener: (...args: never[]) => void) => {
+      const bucket = credentialListeners.get(event) ?? [];
+      bucket.push(listener);
+      credentialListeners.set(event, bucket);
+      return () => {
+        credentialListeners.set(
+          event,
+          (credentialListeners.get(event) ?? []).filter(
+            (item) => item !== listener,
+          ),
+        );
+      };
+    },
+  );
+  ctx.provide("remote", { $mount: mount, $on: onRemote });
   if (options.withoutNamespace !== true) {
     ctx.provide("remote.imagePathify", {
       getSettings,
@@ -127,6 +146,13 @@ async function boot(options: BootOptions = {}) {
     getUpdate,
     describeCredentials,
     setCredential,
+    credentials,
+    onRemote,
+    emitCredential(event: string, ref: string) {
+      for (const listener of credentialListeners.get(event) ?? []) {
+        listener(ref as never);
+      }
+    },
   };
 }
 
@@ -256,5 +282,31 @@ describe("dsh-image-pathify client apply", () => {
         .installedVersion,
     ).toBe("0.1.0");
     expect(booted.getUpdate).toHaveBeenCalled();
+  });
+
+  it("refreshes the configured badge from either credential event name", async () => {
+    const booted = await boot();
+    const face = pluginCard(booted).inject();
+    expect(booted.onRemote).toHaveBeenCalledWith(
+      "credentials/reference-updated",
+      expect.any(Function),
+    );
+    expect(booted.onRemote).toHaveBeenCalledWith(
+      "credentials/updated",
+      expect.any(Function),
+    );
+    expect(face.hooks.imagePathifyCard.getSnapshot().apiKeySet).toBe(false);
+
+    booted.credentials.set(DEFAULT_API_KEY_ENV, "sk-from-file");
+    booted.emitCredential("credentials/reference-updated", DEFAULT_API_KEY_ENV);
+    await expect
+      .poll(() => face.hooks.imagePathifyCard.getSnapshot().apiKeySet)
+      .toBe(true);
+
+    booted.credentials.delete(DEFAULT_API_KEY_ENV);
+    booted.emitCredential("credentials/updated", DEFAULT_API_KEY_ENV);
+    await expect
+      .poll(() => face.hooks.imagePathifyCard.getSnapshot().apiKeySet)
+      .toBe(false);
   });
 });
