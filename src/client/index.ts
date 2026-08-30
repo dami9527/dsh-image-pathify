@@ -4,10 +4,7 @@
  * Components never see `ctx`.
  */
 import type {} from "@deepseek-ai/dsh-api-remotes/client";
-import type {
-  ConnectionHandle,
-  IApiClient,
-} from "@deepseek-ai/dsh-client-connection/client";
+import type {} from "@deepseek-ai/dsh-client-connection/client";
 import type { ClientContext } from "@deepseek-ai/dsh-client-runtime/client";
 import type {} from "@deepseek-ai/dsh-client-locale/client";
 import type {} from "@deepseek-ai/dsh-client-ui-settings/client";
@@ -18,14 +15,12 @@ import type {
   ImagePathifySettingsUpdate,
   ImagePathifyUpdateStatus,
 } from "../contract.ts";
-import {
-  ImagePathifyCardController,
-  type VisionCredentialFace,
-} from "./card-form.ts";
+import { ImagePathifyCardController } from "./card-form.ts";
 import {
   ImagePathifyCard,
   type ImagePathifyCardInjected,
 } from "./ImagePathifyCard.tsx";
+import { liveCredentials } from "./credentials-api.ts";
 import { NS, en, zh } from "./locales.ts";
 import { IMAGE_PATHIFY_REMOTE } from "./remote.ts";
 import { adoptStyles } from "./styles.ts";
@@ -49,32 +44,6 @@ interface ImagePathifyNamespaceFace {
     | { ok: true; value: ImagePathifyUpdateStatus }
     | { ok: false; error: { code: string; message: string; details: object } }
   >;
-}
-
-function credentialsFace(
-  api: IApiClient["credentials"] | undefined,
-): VisionCredentialFace {
-  return {
-    async describe(ref) {
-      if (api === undefined) return { configured: false, writable: true };
-      const response = await api.describe({ refs: [ref] });
-      if (!response.result.ok) return { configured: false, writable: true };
-      const view = response.result.value.credentials[ref];
-      return {
-        configured: view?.configured ?? false,
-        writable: view?.writable ?? true,
-      };
-    },
-    async set(ref, value) {
-      if (api === undefined) {
-        throw new Error("the credentials API is not available");
-      }
-      const response = await api.set({ ref, value });
-      if (!response.result.ok) {
-        throw new Error("credentials.set refused");
-      }
-    },
-  };
 }
 
 /**
@@ -146,11 +115,15 @@ export function apply(ctx: ClientContext): void {
     return operation;
   };
 
-  const connection = ctx.get("connection") as ConnectionHandle | undefined;
   const card = new ImagePathifyCardController(
     updateSettings,
-    credentialsFace(connection?.api.credentials),
+    liveCredentials(ctx),
   );
+  // 0.1.2 mounts credentials as `remote.credentials`. Nested inject waits for
+  // it without blocking older hosts that never provide that service.
+  ctx.inject(["remote.credentials"], () => {
+    card.refreshCredential();
+  });
 
   ctx.effect(() => {
     const onUpdated = ctx.remote.$on;

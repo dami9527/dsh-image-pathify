@@ -137,6 +137,7 @@ declare module "@deepseek-ai/dsh-client-runtime/client" {
     ): void;
     on(event: string, listener: (...args: never[]) => void): () => void;
     get(name: string): unknown;
+    inject(deps: string[], callback: (ctx: ClientContext) => void): void;
     locale: {
       register(
         ns: string,

@@ -117,6 +117,7 @@ interface SetupOptions {
     root?: string;
     readImage?: () => Promise<StoredImageAttachment>;
     imagePath?: (ref: ImageAttachmentRef) => string;
+    imageHostPath?: (ref: ImageAttachmentRef) => string;
   };
   config?: Record<string, unknown>;
 }
@@ -299,7 +300,34 @@ describe("dsh-image-pathify", () => {
     expect(rewritten?.source).toEqual(message.source);
   });
 
-  it("prefers imagePath() over a local root when the store publishes both", async () => {
+  it("prefers imageHostPath() over imagePath() and a local root", async () => {
+    const { ctx, adapter } = await setup({
+      attachments: {
+        root: "/attachments",
+        imagePath: () => "/legacy-path",
+        imageHostPath: (ref) => `/host/${String(ref.attachmentId)}`,
+      },
+      modalities: { model: ["text"] },
+    });
+
+    await drain(
+      ctx.llm.stream({
+        provider: "route",
+        model: "model",
+        messages: [imageMessage()],
+      }),
+    );
+
+    expect(adapter.lastOptions?.messages[0]?.content).toEqual([
+      { type: "text", text: "what is in" },
+      {
+        type: "text",
+        text: `Saved attachments: /host/sha256:${"a".repeat(64)}`,
+      },
+    ]);
+  });
+
+  it("falls through to imagePath() when imageHostPath() is absent", async () => {
     const { ctx, adapter } = await setup({
       attachments: {
         root: "/attachments",

@@ -29,6 +29,13 @@ interface BootOptions {
   ) => Promise<RemoteResult<ImagePathifyPublicSettings>>;
   getUpdate?: () => Promise<RemoteResult<ImagePathifyUpdateStatus>>;
   withoutNamespace?: boolean;
+  /**
+   * Where the credentials methods live.
+   * `legacy` = `connection.api.credentials` (pre-0.1.2).
+   * `remote` = `remote.credentials` (0.1.2-alpha.1, no `connection.api`).
+   * `none` = connected host with no credentials wire (must not throw).
+   */
+  credentialsWire?: "legacy" | "remote" | "none";
 }
 
 async function boot(options: BootOptions = {}) {
@@ -79,28 +86,38 @@ async function boot(options: BootOptions = {}) {
     string,
     Array<(...args: never[]) => void>
   >();
-  const describeCredentials = vi.fn(async ({ refs }: { refs: string[] }) => ({
-    result: {
-      ok: true as const,
-      value: {
-        credentials: Object.fromEntries(
-          refs.map((ref) => [
-            ref,
-            {
-              configured: credentials.has(ref),
-              writable: true,
-            },
-          ]),
-        ),
+  const describeCredentials = vi.fn(async (input: unknown) => {
+    const refs = Array.isArray(input)
+      ? (input as string[])
+      : ((input as { refs?: string[] } | undefined)?.refs ?? []);
+    const views = Object.fromEntries(
+      refs.map((ref) => [
+        ref,
+        {
+          configured: credentials.has(ref),
+          writable: true,
+        },
+      ]),
+    );
+    if (options.credentialsWire === "remote") {
+      return { ok: true as const, value: views };
+    }
+    return {
+      result: {
+        ok: true as const,
+        value: { credentials: views },
       },
-    },
-  }));
-  const setCredential = vi.fn(
-    async ({ ref, value }: { ref: string; value: string }) => {
-      credentials.set(ref, value);
-      return { result: { ok: true as const, value: {} } };
-    },
-  );
+    };
+  });
+  const setCredential = vi.fn(async (first: unknown, second?: unknown) => {
+    if (typeof first === "string" && typeof second === "string") {
+      credentials.set(first, second);
+      return { ok: true as const, value: undefined };
+    }
+    const payload = first as { ref: string; value: string };
+    credentials.set(payload.ref, payload.value);
+    return { result: { ok: true as const, value: {} } };
+  });
   const onRemote = vi.fn(
     (event: string, listener: (...args: never[]) => void) => {
       const bucket = credentialListeners.get(event) ?? [];
@@ -126,11 +143,22 @@ async function boot(options: BootOptions = {}) {
   }
   ctx.provide("slots", { inject: slotsInject, register: slotsRegister });
   ctx.provide("locale", { register: localeRegister, bind });
-  ctx.provide("connection", {
-    api: {
-      credentials: { describe: describeCredentials, set: setCredential },
-    },
-  });
+  const wire = options.credentialsWire ?? "legacy";
+  if (wire === "remote") {
+    ctx.provide("connection", {});
+    ctx.provide("remote.credentials", {
+      describe: describeCredentials,
+      set: setCredential,
+    });
+  } else if (wire === "none") {
+    ctx.provide("connection", {});
+  } else {
+    ctx.provide("connection", {
+      api: {
+        credentials: { describe: describeCredentials, set: setCredential },
+      },
+    });
+  }
   apply(ctx as never);
   await Promise.resolve();
   await Promise.resolve();
@@ -252,6 +280,31 @@ describe("dsh-image-pathify client apply", () => {
     expect(booted.updateSettings).not.toHaveBeenCalled();
     expect(face.hooks.imagePathifyCard.getSnapshot().apiKeySet).toBe(true);
     expect(face.hooks.imagePathifyCard.getSnapshot().apiKeyText).toBe("");
+  });
+
+  it("applies on a 0.1.2 connection that has no api bag", async () => {
+    const booted = await boot({ credentialsWire: "none" });
+    expect(pluginCard(booted).key).toBe(NS);
+    expect(
+      pluginCard(booted).inject().hooks.imagePathifyCard.getSnapshot()
+        .available,
+    ).toBe(true);
+  });
+
+  it("writes the API key through remote.credentials on 0.1.2 hosts", async () => {
+    const booted = await boot({ credentialsWire: "remote" });
+    const face = pluginCard(booted).inject();
+    face.edit("apiKey", "sk-test");
+    face.save();
+    await expect
+      .poll(() => booted.setCredential.mock.calls.length)
+      .toBeGreaterThan(0);
+    expect(booted.setCredential).toHaveBeenCalledWith(
+      DEFAULT_API_KEY_ENV,
+      "sk-test",
+    );
+    expect(booted.updateSettings).not.toHaveBeenCalled();
+    expect(face.hooks.imagePathifyCard.getSnapshot().apiKeySet).toBe(true);
   });
 
   it("surfaces an available update on the card header snapshot", async () => {

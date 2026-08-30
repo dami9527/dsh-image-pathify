@@ -48,32 +48,52 @@ export function messagesHaveImage(messages: readonly Message[]): boolean {
 }
 
 /**
+ * Call one optional store path method. 0.1.2's `imageHostPath` throws on a
+ * malformed ref; treat that as "no published path" and keep falling through.
+ */
+function publishedByMethod(
+  method: unknown,
+  attachments: AttachmentStore,
+  ref: ImageAttachmentRef,
+): string | undefined {
+  if (typeof method !== "function") return undefined;
+  try {
+    const path = (method as (next: ImageAttachmentRef) => unknown).call(
+      attachments,
+      ref,
+    );
+    return typeof path === "string" && path.length > 0 ? path : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Prefer a store-published path when the host already exposes one.
  *
- * Newer `AttachmentStore` implementations provide `imagePath()`. Older
- * local stores only publish `root` plus the content-addressed object
- * layout (`objects/<sha256[0:2]>/<sha256>`). Either is a zero-copy path
- * the vision helper can read; anything else falls through to materialize.
+ * 0.1.2-alpha.1 names this `imageHostPath()`. Earlier local stores used
+ * `imagePath()`, or only published `root` plus the content-addressed object
+ * layout (`objects/<sha256[0:2]>/<sha256>`). Any of those is a zero-copy
+ * path the vision helper can read; anything else falls through to materialize.
  */
 function publishedImagePath(
   attachments: AttachmentStore,
   ref: ImageAttachmentRef,
 ): string | undefined {
-  const { imagePath, root } = attachments as {
+  const store = attachments as {
+    imageHostPath?: unknown;
     imagePath?: unknown;
     root?: unknown;
   };
-  if (typeof imagePath === "function") {
-    return (imagePath as (ref: ImageAttachmentRef) => string).call(
-      attachments,
-      ref,
-    );
-  }
-  if (typeof root !== "string") return undefined;
+  const published =
+    publishedByMethod(store.imageHostPath, attachments, ref) ??
+    publishedByMethod(store.imagePath, attachments, ref);
+  if (published !== undefined) return published;
+  if (typeof store.root !== "string") return undefined;
   const sha = ID_PATTERN.exec(String(ref.attachmentId))?.[1];
   return sha === undefined
     ? undefined
-    : join(root, "objects", sha.slice(0, 2), sha);
+    : join(store.root, "objects", sha.slice(0, 2), sha);
 }
 
 function fallbackFilePath(ref: ImageAttachmentRef): string {
