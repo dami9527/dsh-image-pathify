@@ -19,12 +19,9 @@ import type {
 } from "@deepseek-ai/dsh-attachment";
 import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";
 import type { GenerateOptions, Message } from "@deepseek-ai/dsh-llm";
-import {
-  contentHasImage,
-  deepFreeze,
-  freezeMessage,
-} from "@deepseek-ai/dsh-llm";
+import { contentHasImage, freezeMessage } from "@deepseek-ai/dsh-llm";
 import { DEFAULT_PREFIX } from "./defaults.ts";
+import { deepFreeze } from "./freeze.ts";
 
 /** Content-addressed reference shape the local store mints and resolves. */
 const ID_PATTERN = /^sha256:([a-f0-9]{64})$/;

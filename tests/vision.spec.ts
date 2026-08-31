@@ -69,8 +69,7 @@ describe("analyzeImage", () => {
     expect(text).toBe("a cat");
     expect(readFile).not.toHaveBeenCalled();
     const fetchCall = fetchImpl.mock.calls[0] as unknown as
-      | [input: string, init?: RequestInit]
-      | undefined;
+      [input: string, init?: RequestInit] | undefined;
     expect(fetchCall).toBeDefined();
     const [url, init] = fetchCall!;
     expect(url).toBe("https://example.com/v1/chat/completions");
@@ -116,8 +115,7 @@ describe("analyzeImage", () => {
     );
     expect(text).toBe("red square");
     const fetchCall = fetchImpl.mock.calls[0] as unknown as
-      | [input: string, init?: RequestInit]
-      | undefined;
+      [input: string, init?: RequestInit] | undefined;
     expect(fetchCall).toBeDefined();
     const body = JSON.parse(String(fetchCall![1]?.body)) as {
       messages: { content: { image_url?: { url: string } }[] }[];
@@ -159,8 +157,7 @@ describe("analyzeImage", () => {
       },
     );
     const fetchCall = fetchImpl.mock.calls[0] as unknown as
-      | [input: string, init?: RequestInit]
-      | undefined;
+      [input: string, init?: RequestInit] | undefined;
     const body = JSON.parse(String(fetchCall![1]?.body)) as {
       messages: { content: { image_url?: { url: string } }[] }[];
     };
@@ -431,8 +428,7 @@ describe("analyzeImages", () => {
     );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const fetchCall = fetchImpl.mock.calls[0] as unknown as
-      | [input: string, init?: RequestInit]
-      | undefined;
+      [input: string, init?: RequestInit] | undefined;
     const body = JSON.parse(String(fetchCall![1]?.body)) as {
       max_tokens?: number;
       messages: {

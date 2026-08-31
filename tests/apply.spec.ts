@@ -117,8 +117,7 @@ describe("analyze_image live settings", () => {
     ).resolves.toBe("a bird");
 
     const fetchCall = fetchImpl.mock.calls[0] as unknown as
-      | [input: string, init?: RequestInit]
-      | undefined;
+      [input: string, init?: RequestInit] | undefined;
     expect(fetchCall).toBeDefined();
     expect(fetchCall![1]?.headers).toMatchObject({
       Authorization: "Bearer sk-test-key",
@@ -188,8 +187,7 @@ describe("analyze_image live settings", () => {
     expect(String(text)).toContain("1. https://example.com/a.png");
     expect(String(text)).toContain("2. https://example.com/b.png");
     const fetchCall = fetchImpl.mock.calls[0] as unknown as
-      | [input: string, init?: RequestInit]
-      | undefined;
+      [input: string, init?: RequestInit] | undefined;
     const body = JSON.parse(String(fetchCall![1]?.body)) as {
       max_tokens: number;
       messages: {
@@ -258,8 +256,7 @@ describe("analyze_image live settings", () => {
       { signal: new AbortController().signal },
     );
     const fetchCall = fetchImpl.mock.calls[0] as unknown as
-      | [input: string, init?: RequestInit]
-      | undefined;
+      [input: string, init?: RequestInit] | undefined;
     const body = JSON.parse(String(fetchCall![1]?.body)) as {
       max_tokens: number;
     };

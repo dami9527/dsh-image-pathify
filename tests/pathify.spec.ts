@@ -15,6 +15,7 @@ import LlmRuntime, {
   LlmResolvedModelInfo,
   StreamChunk,
 } from "@deepseek-ai/dsh-llm";
+import { deepFreeze } from "../src/freeze.ts";
 import * as plugin from "../src/index.ts";
 
 const contexts: Context[] = [];
@@ -499,6 +500,44 @@ describe("dsh-image-pathify", () => {
       "bash",
     ]);
     expect(adapter.lastOptions?.system).toContain("analyze_image");
+  });
+
+  it("rewrites a frozen request and leaves AbortSignal unfrozen", async () => {
+    const { ctx, adapter } = await setup({
+      attachments: { root: "/attachments" },
+      modalities: { model: ["text"] },
+    });
+    const controller = new AbortController();
+    const request = deepFreeze({
+      provider: "route",
+      model: "model",
+      messages: [imageMessage()],
+      tools: catalogTools(),
+      signal: controller.signal,
+    });
+
+    await drain(ctx.llm.stream(request));
+
+    expect(Object.isFrozen(adapter.lastOptions)).toBe(true);
+    expect(Object.isFrozen(controller.signal)).toBe(false);
+    expect(adapter.lastOptions?.tools?.map((tool) => tool.name)).toEqual([
+      "analyze_image",
+      "bash",
+    ]);
+    expect(adapter.lastOptions?.messages[0]?.content[1]).toEqual({
+      type: "text",
+      text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+    });
+    let fired = false;
+    controller.signal.addEventListener(
+      "abort",
+      () => {
+        fired = true;
+      },
+      { once: true },
+    );
+    controller.abort();
+    expect(fired).toBe(true);
   });
 
   it("drops analyze_image from a vision request that only names a local path", async () => {

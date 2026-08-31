@@ -36,7 +36,6 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type { AttachmentStore } from "@deepseek-ai/dsh-attachment";
 import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
-import { deepFreeze } from "@deepseek-ai/dsh-llm";
 // Side-effect type import: merges the `llm/stream` event and `ctx.llm` into
 // the program so `ctx.on('llm/stream', …)` and `ctx.llm` type-check.
 import type {} from "@deepseek-ai/dsh-llm";
@@ -46,6 +45,7 @@ import type {} from "@deepseek-ai/dsh-typert-registry";
 import type {} from "@deepseek-ai/dsh-system-prompt";
 import { installAdmissionShim } from "./admission.ts";
 import { Config, type Config as ConfigShape } from "./config.ts";
+import { deepFreeze } from "./freeze.ts";
 import { messagesHaveImage, pathifyImages } from "./pathify.ts";
 import {
   installVisionPolicy,
