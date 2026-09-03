@@ -95,6 +95,16 @@ v{VERSION} — {一句中文摘要}
 
 正文：先一段话说明宿主/产品发生了什么、本版怎么处理；再 2～5 条 `-` 列表。可含行内 `` `code` ``。不要写「版本 bump」「加了测试」。
 
+正文末尾必须加页脚（与正文空一行、再 `---`、再空一行）。固定英文，不要改写、不要翻译：
+
+```
+---
+
+<sub><em>Automatically published by the <code>publish-release</code> skill.</em></sub>
+```
+
+GitHub 会把 `<sub>` 渲染成小号灰色、`<em>` 成斜体。新建和 `gh release edit` 都要带上。
+
 示例（照这个语气和结构，不要照抄内容）：
 
 标题：`v0.1.7 — 兼容 Harness 0.1.2-alpha.1 凭据接口与附件路径`
@@ -105,6 +115,10 @@ DeepSeek Harness 0.1.2-alpha.1 把浏览器凭据从 `connection.api` 挪到 `re
 - 识图卡优先走 `remote.credentials`，没有时回退 `connection.api.credentials`；0.1.2 宿主不再挂 `api` 也不会报错
 - 凭据服务晚挂载时自动刷新「已配置密钥」状态
 - 附件路径优先 `imageHostPath()`，没有或抛错再回退 `imagePath()` / 本地 `root` 布局
+
+---
+
+<sub><em>Automatically published by the <code>publish-release</code> skill.</em></sub>
 ```
 
 再对照：`v0.1.6 — 兼容 Harness 0.1.1 凭据事件，默认改用 DeepSeek 识图`、`v0.1.5 — 兼容 DeepSeek Harness rc.7 设置页 slot`。可用 `gh release view v0.1.6 --json name,body` 核对风格。
@@ -128,6 +142,10 @@ gh release create "v${VERSION}" \
   --title "v${VERSION} — {摘要}" \
   --notes "$(cat <<'EOF'
 {正文}
+
+---
+
+<sub><em>Automatically published by the <code>publish-release</code> skill.</em></sub>
 EOF
 )"
 ```
