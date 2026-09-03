@@ -12,8 +12,9 @@
  */
 import { build } from "esbuild";
 import { execFileSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 
+rmSync("lib", { recursive: true, force: true });
 mkdirSync("lib", { recursive: true });
 
 const dshExternal = ["@deepseek-ai/cordis", "@deepseek-ai/dsh-*"];
