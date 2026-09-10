@@ -1,13 +1,15 @@
 /**
  * Dispatch-time image pathification: rewrite `image` content blocks to
  * `Saved attachments: <absolute path>` text blocks so a model without the
- * image input modality still receives the images it needs — a vision skill
- * A vision tool (`analyze_image`) then reads those files and turns them
- * into image descriptions.
+ * image input modality still receives the images it needs. A vision tool
+ * (`analyze_image`) then reads those files and turns them into image
+ * descriptions.
  *
  * The durable session message is NEVER touched: the Web UI keeps rendering
  * thumbnails from the real image block; only the adapter-facing request is
- * rewritten, immediately before dispatch.
+ * rewritten, immediately before dispatch. Nested `tool-result` images
+ * (for example a prior `read_image` after switching to a text-only model)
+ * are rewritten the same way as top-level blocks.
  * @module dsh-image-pathify/pathify
  */
 
@@ -18,7 +20,11 @@ import type {
   ImageAttachmentRef,
 } from "@deepseek-ai/dsh-attachment";
 import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";
-import type { GenerateOptions, Message } from "@deepseek-ai/dsh-llm";
+import type {
+  ContentBlock,
+  GenerateOptions,
+  Message,
+} from "@deepseek-ai/dsh-llm";
 import { contentHasImage, freezeMessage } from "@deepseek-ai/dsh-llm";
 import { DEFAULT_PREFIX } from "./defaults.ts";
 import { deepFreeze } from "./freeze.ts";
@@ -134,8 +140,40 @@ export async function resolveImagePath(
 }
 
 /**
- * Rewrite the adapter-facing request: every top-level image block becomes a
- * text block carrying the durable file path (one text block per image).
+ * Rewrite image blocks in one content list, including nested `tool-result`
+ * content. Unchanged lists and blocks keep their identity.
+ */
+async function rewriteBlocks(
+  blocks: readonly ContentBlock[],
+  attachments: AttachmentStore,
+  signal?: AbortSignal,
+): Promise<readonly ContentBlock[]> {
+  const next = await Promise.all(
+    blocks.map(async (block): Promise<ContentBlock> => {
+      if (block.type === "image") {
+        const path = await resolveImagePath(
+          attachments,
+          block.attachment,
+          signal,
+        );
+        return { type: "text", text: `${DEFAULT_PREFIX}${path}` };
+      }
+      if (block.type === "tool-result") {
+        const content = await rewriteBlocks(block.content, attachments, signal);
+        if (content === block.content) return block;
+        return { ...block, content: [...content] };
+      }
+      return block;
+    }),
+  );
+  if (next.every((block, index) => block === blocks[index])) return blocks;
+  return next;
+}
+
+/**
+ * Rewrite the adapter-facing request: every image block — top-level or nested
+ * in `tool-result.content` — becomes a text block carrying the durable file
+ * path (one text block per image).
  *
  * @param options - the request to rewrite; messages are replaced only when
  * the request actually carries images.
@@ -153,21 +191,9 @@ export async function pathifyImages(
   const messages = await Promise.all(
     options.messages.map(async (message) => {
       if (!contentHasImage(message.content)) return message;
-      const content = await Promise.all(
-        message.content.map(async (block) => {
-          if (block.type !== "image") return block;
-          const path = await resolveImagePath(
-            attachments,
-            block.attachment,
-            signal,
-          );
-          return { type: "text" as const, text: `${DEFAULT_PREFIX}${path}` };
-        }),
-      );
-      if (content.every((block, index) => block === message.content[index])) {
-        return message;
-      }
-      return freezeMessage({ ...message, content });
+      const content = await rewriteBlocks(message.content, attachments, signal);
+      if (content === message.content) return message;
+      return freezeMessage({ ...message, content: [...content] });
     }),
   );
   if (messages.every((message, index) => message === options.messages[index])) {

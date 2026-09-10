@@ -11,18 +11,24 @@
  *    rewrites image blocks to `Saved attachments: <absolute path>` text
  *    blocks when the target model lacks the image input modality.
  *    `analyze_image` then reads those files through the configured vision
- *    API. Immediately before dispatch, `llm/stream` also drops `read_image`
- *    for text-only models and `analyze_image` for vision models, using the
- *    provider/model on that request (not the possibly-stale agent options).
- *    `read_image` is denied on non-vision routes so a leftover call is
- *    steered to `analyze_image`. Vision-capable models keep original image
- *    blocks; `analyze_image` is omitted from their request and denied if
- *    they still call it.
+ *    API. Nested `tool-result` images are rewritten the same way. Immediately
+ *    before dispatch, `llm/stream` also drops `read_image` for text-only
+ *    models and `analyze_image` for vision models, using the provider/model
+ *    on that request (not the possibly-stale agent options). On a vision
+ *    route it also strips the `analyze_image` paragraph from `options.system`
+ *    and from `system`-role message text (0.1.5 agent-loop leaves
+ *    `GenerateOptions.system` unset). `read_image` is denied on non-vision
+ *    routes so a leftover call is steered to `analyze_image`. Vision-capable
+ *    models keep original image blocks; `analyze_image` is omitted from their
+ *    request and denied if they still call it.
  *
- * Because the host's image admission preflights (`session.prompt`,
- * `session.selectModel`) have no plugin seam, this plugin also installs a
- * small, configurable shim on `ctx.llm.resolveModelInfo` so those gates
- * admit images for the configured text-only models (see {@link admission}).
+ * Because the host's image admission preflight (`session.prompt`, and any
+ * other caller of `resolveModelInfo` that refuses non-image routes) has no
+ * plugin seam, this plugin also installs a small, configurable shim on
+ * `ctx.llm.resolveModelInfo` so those gates admit images for the configured
+ * text-only models (see {@link admission}). On dsh 0.1.5, `session.selectModel`
+ * already allows switching to a text-only model while durable images remain;
+ * the shim is still required so *new* pasted images are admitted.
  *
  * `llm` is required. `tools`, `systemPrompt`, `settings`, and `typert` are
  * joined with nested `ctx.inject` so pathify still loads in a composition
@@ -166,23 +172,17 @@ function pathifyStream(
   next: () => AsyncIterable<StreamChunk>,
 ): AsyncIterable<StreamChunk> {
   return (async function* (): AsyncIterable<StreamChunk> {
+    const resume = (routed: GenerateOptions): AsyncIterable<StreamChunk> =>
+      routed === options ? next() : ctx.llm.stream(routed);
     const vision = !(await shouldRewrite(ctx, options));
     const routed = applyDispatchPolicy(ctx, options, vision);
     if (vision || !messagesHaveImage(routed.messages)) {
-      if (routed === options) {
-        yield* next();
-        return;
-      }
-      yield* ctx.llm.stream(routed);
+      yield* resume(routed);
       return;
     }
     const attachments = ctx.get("attachments") as AttachmentStore | undefined;
     if (attachments === undefined) {
-      if (routed === options) {
-        yield* next();
-        return;
-      }
-      yield* ctx.llm.stream(routed);
+      yield* resume(routed);
       return;
     }
     options.signal?.throwIfAborted();

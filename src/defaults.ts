@@ -8,7 +8,7 @@
 export const DEFAULT_PREFIX = "Saved attachments: ";
 
 /** Default vision model id (DeepSeek official vision). */
-export const DEFAULT_VISION_MODEL = "deepseek-v4-flash-vision-exp";
+export const DEFAULT_VISION_MODEL = "deepseek-flash";
 
 /** Default OpenAI-compatible vision endpoint (DeepSeek official). */
 export const DEFAULT_VISION_BASE_URL = "https://api.deepseek.com";

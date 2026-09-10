@@ -9,7 +9,9 @@ import type {
   StoredImageAttachment,
 } from "@deepseek-ai/dsh-attachment";
 import LlmRuntime, {
+  CallId,
   createMessage,
+  createToolResultMessage,
   GenerateOptions,
   LlmAdapter,
   LlmResolvedModelInfo,
@@ -390,6 +392,144 @@ describe("dsh-image-pathify", () => {
     ]);
   });
 
+  it("rewrites an image nested in a tool-result for a text-only model", async () => {
+    const { ctx, adapter } = await setup({
+      attachments: { root: "/attachments" },
+      modalities: { model: ["text"] },
+    });
+    const callId = CallId("read-image-1");
+    const message = createToolResultMessage({
+      callId,
+      content: [imageBlock()],
+      isError: false,
+    });
+
+    await drain(
+      ctx.llm.stream({
+        provider: "route",
+        model: "model",
+        messages: [message],
+      }),
+    );
+
+    expect(message.content[0]?.type).toBe("tool-result");
+    expect(adapter.lastOptions?.messages[0]?.content).toEqual([
+      {
+        type: "tool-result",
+        toolCallId: callId,
+        content: [
+          {
+            type: "text",
+            text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+          },
+        ],
+        isError: false,
+      },
+    ]);
+  });
+
+  it("rewrites both top-level and nested tool-result images", async () => {
+    const { ctx, adapter } = await setup({
+      attachments: { root: "/attachments" },
+      modalities: { model: ["text"] },
+    });
+    const nested = {
+      type: "tool-result" as const,
+      toolCallId: CallId("read-image-1"),
+      content: [imageBlock(`sha256:${"b".repeat(64)}`)],
+    };
+    const message = createMessage({
+      role: "user",
+      content: [
+        { type: "text", text: "compare" },
+        imageBlock(`sha256:${"a".repeat(64)}`),
+        nested,
+      ],
+      source: { kind: "user" },
+    });
+
+    await drain(
+      ctx.llm.stream({
+        provider: "route",
+        model: "model",
+        messages: [message],
+      }),
+    );
+
+    expect(adapter.lastOptions?.messages[0]?.content).toEqual([
+      { type: "text", text: "compare" },
+      {
+        type: "text",
+        text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+      },
+      {
+        type: "tool-result",
+        toolCallId: nested.toolCallId,
+        content: [
+          {
+            type: "text",
+            text: `Saved attachments: /attachments/objects/bb/${"b".repeat(64)}`,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("keeps a message whose tool-result has no images as the same object", async () => {
+    const { ctx, adapter } = await setup({
+      attachments: { root: "/attachments" },
+      modalities: { model: ["text"] },
+    });
+    const plain = createToolResultMessage({
+      callId: CallId("other"),
+      content: [{ type: "text", text: "ok" }],
+      isError: false,
+    });
+    const visual = createMessage({
+      role: "user",
+      content: [imageBlock()],
+      source: { kind: "user" },
+    });
+
+    await drain(
+      ctx.llm.stream({
+        provider: "route",
+        model: "model",
+        messages: [plain, visual],
+      }),
+    );
+
+    expect(adapter.lastOptions?.messages[0]).toBe(plain);
+    expect(adapter.lastOptions?.messages[1]?.content).toEqual([
+      {
+        type: "text",
+        text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+      },
+    ]);
+  });
+
+  it("passes nested tool-result images through for a vision model", async () => {
+    const { ctx, adapter } = await setup({
+      attachments: { root: "/attachments" },
+      modalities: { model: ["text", "image"] },
+    });
+    const message = createToolResultMessage({
+      callId: CallId("read-image-1"),
+      content: [imageBlock()],
+      isError: false,
+    });
+
+    await drain(
+      ctx.llm.stream({
+        provider: "route",
+        model: "model",
+        messages: [message],
+      }),
+    );
+
+    expect(adapter.lastOptions?.messages[0]).toBe(message);
+  });
+
   it("materializes when a root is present but the id is not content-addressed", async () => {
     const dir = await mkdtemp(join(tmpdir(), "dsh-image-pathify-"));
     process.env.DSH_HOME = dir;
@@ -561,6 +701,37 @@ describe("dsh-image-pathify", () => {
     ]);
     expect(adapter.lastOptions?.system).not.toContain("analyze_image");
     expect(adapter.lastOptions?.system).toContain("persona");
+  });
+
+  it("drops analyze_image guidance from a system-role message on a vision dispatch", async () => {
+    const { ctx, adapter } = await setup({
+      attachments: { root: "/attachments" },
+      modalities: { model: ["text", "image"] },
+    });
+    const prompt = plugin.visionPromptText();
+    const systemMessage = createMessage({
+      role: "system",
+      content: [{ type: "text", text: `persona\n\n${prompt}\n\nfooter` }],
+      source: { kind: "plugin", plugin: "system-prompt" },
+    });
+    const user = pathMessage();
+    await drain(
+      ctx.llm.stream({
+        provider: "route",
+        model: "model",
+        messages: [systemMessage, user],
+        tools: catalogTools(),
+      }),
+    );
+    expect(adapter.lastOptions?.tools?.map((tool) => tool.name)).toEqual([
+      "read_image",
+      "bash",
+    ]);
+    expect(adapter.lastOptions?.system).toBeUndefined();
+    expect(adapter.lastOptions?.messages[0]?.content).toEqual([
+      { type: "text", text: "persona\n\nfooter" },
+    ]);
+    expect(adapter.lastOptions?.messages[1]).toBe(user);
   });
 });
 

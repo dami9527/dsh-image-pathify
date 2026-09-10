@@ -296,6 +296,62 @@ describe("filterDispatchForRoute", () => {
     expect(filterDispatchForRoute(already, true)).toBe(already);
     expect(filterDispatchForRoute(already, false)).toBe(already);
   });
+
+  it("drops analyze_image prompt from system-role message text", () => {
+    const user = { role: "user", content: [{ type: "text", text: "hi" }] };
+    const messages = [
+      {
+        role: "system",
+        content: [{ type: "text", text: `persona\n\n${prompt}\n\nfooter` }],
+      },
+      user,
+    ];
+    const filtered = filterDispatchForRoute(
+      { tools: request.tools, messages },
+      true,
+    );
+    expect(filtered.messages?.[0]?.content).toEqual([
+      { type: "text", text: "persona\n\nfooter" },
+    ]);
+    expect(filtered.messages?.[1]).toBe(user);
+    expect(filtered.tools?.map((tool) => tool.name)).toEqual([
+      READ_IMAGE_TOOL,
+      "bash",
+    ]);
+  });
+
+  it("strips both the system field and system-role messages", () => {
+    const messages = [
+      { role: "system", content: [{ type: "text", text: prompt }] },
+    ];
+    const filtered = filterDispatchForRoute({ ...request, messages }, true);
+    expect(filtered.system).not.toContain("analyze_image");
+    expect(filtered.system).toContain("persona");
+    expect(filtered.messages?.[0]?.content?.[0]?.text).toBe("");
+  });
+
+  it("keeps system-role analyze_image guidance on a text-only dispatch", () => {
+    const messages = [
+      { role: "system", content: [{ type: "text", text: prompt }] },
+    ];
+    const filtered = filterDispatchForRoute(
+      { tools: request.tools, messages },
+      false,
+    );
+    expect(filtered.messages).toBe(messages);
+    expect(filtered.tools?.map((tool) => tool.name)).toEqual([
+      ANALYZE_IMAGE_TOOL,
+      "bash",
+    ]);
+  });
+
+  it("returns the same messages array when system-role text is already clean", () => {
+    const messages = [
+      { role: "system", content: [{ type: "text", text: "persona" }] },
+    ];
+    const already = { tools: [{ name: "bash" }], messages };
+    expect(filterDispatchForRoute(already, true)).toBe(already);
+  });
 });
 
 describe("requestHeaderRoute", () => {

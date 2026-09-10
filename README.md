@@ -26,9 +26,9 @@ dsh web
 打开 **设置 → 插件 → 识图**，填写后点保存：
 
 - API 密钥（写入 `$DSH_HOME/.credentials.yaml`，不进设置文件）
-- 识图模型（默认 `deepseek-v4-flash-vision-exp`）
+- 识图模型（默认 `deepseek-flash`）
 - 识图 API 地址（默认 `https://api.deepseek.com`）
-- **禁用思考**（默认勾选）。部分模型如 deepseek-v4-flash-vision-exp 默认会思考，思考 token 计入输出上限；取消勾选才会走思考模式，开启思考时应增大输出上限
+- **禁用思考**（默认勾选）。DeepSeek 识图模型（如 `deepseek-flash`）默认会思考，思考 token 计入输出上限；取消勾选才会走思考模式，开启思考时应增大输出上限
 
 任何 OpenAI 兼容的视觉接口都可以，把地址(部分地址需要后面加/v1)和模型改成你的服务即可。设置页改动保存后立即生效，不用重启。
 
@@ -66,7 +66,7 @@ dsh plugin --profile web add dsh-image-pathify@version
 | 选项              | 默认                           | 做什么                                                                                                                                               |
 | ----------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apiKeyEnv`       | `IMAGE_PATHIFY_API_KEY`        | 凭据引用名。密钥本身写在 `$DSH_HOME/.credentials.yaml`，不进设置文件                                                                                 |
-| `visionModel`     | `deepseek-v4-flash-vision-exp` | 识图模型 id。                                                                                                                                        |
+| `visionModel`     | `deepseek-flash`               | 识图模型 id。                                                                                                                                        |
 | `visionBaseUrl`   | `https://api.deepseek.com`     | OpenAI 兼容基址。(部分地址需要后面加/v1)                                                                                                             |
 | `disableThinking` | `true`                         | 默认勾选。仅 DeepSeek 等支持 `thinking` 的接口会带上该字段，如果需要思考和详细输出请取消勾选，并增大输出上限，防止输出内容被截断(思考也会占用tokens) |
 | `maxTokens`       | `2048`                         | 输出上限。`0` = 不传 `max_tokens`(不传时各家默认值处理方式并不统一)                                                                                  |
@@ -77,7 +77,7 @@ dsh plugin --profile web add dsh-image-pathify@version
 
 ```yaml
 image-pathify:
-  visionModel: deepseek-v4-flash-vision-exp
+  visionModel: deepseek-flash
   visionBaseUrl: https://api.deepseek.com
   apiKeyEnv: DEEPSEEK_API_KEY
 ```

@@ -35,7 +35,7 @@ const MIME_BY_EXT: Readonly<Record<string, string>> = {
 export interface VisionRequest {
   /** Bearer token for the compatible-mode endpoint. */
   apiKey: string;
-  /** Vision model id (default `deepseek-v4-flash-vision-exp`). */
+  /** Vision model id (default `deepseek-flash`). */
   model: string;
   /** OpenAI-compatible base URL, with or without a trailing slash. */
   baseUrl: string;
@@ -96,7 +96,7 @@ function completionsUrl(baseUrl: string): string {
 }
 
 /**
- * DeepSeek V4 (including `deepseek-v4-flash-vision-exp`) thinks by default.
+ * DeepSeek vision models (including `deepseek-flash`) think by default.
  * Thinking tokens count against `max_tokens`; a 1024 cap often leaves
  * `message.content` empty. Captioning does not need a chain of thought, so
  * the request sends `thinking: { type: "disabled" }` — the same wire field

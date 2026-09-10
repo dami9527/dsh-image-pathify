@@ -34,7 +34,7 @@ export interface Config {
    * by `ctx.credentials` (`$DSH_HOME/.credentials.yaml`), not in this section.
    */
   apiKeyEnv: string;
-  /** Vision model id (default `deepseek-v4-flash-vision-exp`). */
+  /** Vision model id (default `deepseek-flash`). */
   visionModel: string;
   /** OpenAI-compatible vision base URL. */
   visionBaseUrl: string;
@@ -72,7 +72,7 @@ export const Config = z.object({
   relaxAdmission: z.boolean().default(true),
   /** Credential reference resolved for each vision call. */
   apiKeyEnv: z.string().role("credential-ref").default(DEFAULT_API_KEY_ENV),
-  /** Vision model id (default `deepseek-v4-flash-vision-exp`). */
+  /** Vision model id (default `deepseek-flash`). */
   visionModel: z.string().default(DEFAULT_VISION_MODEL),
   /** OpenAI-compatible vision base URL. */
   visionBaseUrl: z.string().default(DEFAULT_VISION_BASE_URL),

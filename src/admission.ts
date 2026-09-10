@@ -1,14 +1,20 @@
 /**
  * Host admission policy shim.
  *
- * The host's `session.prompt` / `session.selectModel` preflights refuse image
- * messages for models whose declared input modalities exclude `image`, and
- * there is no plugin seam on that gate. This wrapper reports
- * `inputModalities: undefined` (unknown) for the configured text-only models
- * while an attachment store is present, so the gates admit the image message;
- * the `llm/stream` pathifier then rewrites image blocks at dispatch, and the
- * vision-skill flow reads the durable files. Vision-capable models and
- * unknown-capability routes pass through untouched.
+ * The host's `session.prompt` preflight refuses image messages for models
+ * whose declared input modalities exclude `image`, and there is no plugin
+ * seam on that gate. Other `resolveModelInfo` callers (MCP image results,
+ * `read_image` route assertions, subagent image delivery) share the same
+ * field. This wrapper reports `inputModalities: undefined` (unknown) for the
+ * configured text-only models while an attachment store is present, so those
+ * gates admit the image message; the `llm/stream` pathifier then rewrites
+ * image blocks at dispatch, and the vision-skill flow reads the durable
+ * files. Vision-capable models and unknown-capability routes pass through
+ * untouched.
+ *
+ * On dsh 0.1.5, `session.selectModel` already allows a text-only selection
+ * while durable or pending images remain; the shim is still required so a
+ * *new* pasted image is not refused at `session.prompt`.
  * @module dsh-image-pathify/admission
  */
 

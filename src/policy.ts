@@ -4,7 +4,10 @@
  *
  * 1. A system-prompt section names the pathify prefix and the replacement tool.
  * 2. `llm/stream` drops `analyze_image` (vision) or `read_image` (text-only)
- *    using the provider/model actually being dispatched. Assemble-time
+ *    using the provider/model actually being dispatched. Vision also strips
+ *    the `analyze_image` paragraph from `options.system` (older one-shot
+ *    callers) and from `system`-role message text (0.1.5 agent-loop puts the
+ *    prompt in history, not `GenerateOptions.system`). Assemble-time
  *    filtering only runs after a request header exists, because the first
  *    step's `agent.options` can lag the UI-selected model.
  * 3. `tools/pre-execute` denies `read_image` on text-only routes (reason names
@@ -106,15 +109,70 @@ export function filterAssemblyForRoute<T extends PromptAssemblyLike>(
   return { ...assembly, tools } as T;
 }
 
+/** One content block we may inspect when stripping the vision prompt. */
+export interface DispatchContentBlock {
+  type: string;
+  text?: string;
+}
+
+/** One adapter-facing message whose top-level text we may trim. */
+export interface DispatchMessage {
+  role?: string;
+  content?: readonly DispatchContentBlock[];
+}
+
 /** One adapter-facing request whose tool catalog and system text we may trim. */
 export interface DispatchRequest {
   tools?: readonly { name: string }[];
   system?: string;
+  messages?: readonly DispatchMessage[];
+}
+
+/**
+ * Remove the `analyze_image` guidance paragraph from one string, collapsing
+ * leftover blank lines. Returns the original string when it is absent.
+ */
+function stripVisionParagraph(text: string): string {
+  const paragraph = visionPromptText();
+  if (paragraph.length === 0 || !text.includes(paragraph)) return text;
+  return text
+    .replace(paragraph, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Strip the vision prompt from top-level `text` blocks of `system`-role
+ * messages. Nested `tool-result` content is left alone. Unchanged lists
+ * keep their identity.
+ */
+function stripVisionPromptFromMessages<T extends DispatchMessage>(
+  messages: readonly T[],
+): readonly T[] {
+  let changed = false;
+  const next = messages.map((message) => {
+    if (message.role !== "system" || message.content === undefined) {
+      return message;
+    }
+    let contentChanged = false;
+    const content = message.content.map((block) => {
+      if (block.type !== "text" || typeof block.text !== "string") return block;
+      const text = stripVisionParagraph(block.text);
+      if (text === block.text) return block;
+      contentChanged = true;
+      return { ...block, text };
+    });
+    if (!contentChanged) return message;
+    changed = true;
+    return { ...message, content };
+  });
+  return changed ? next : messages;
 }
 
 /**
  * Drop the off-route image tool from a live `llm/stream` request. Vision also
- * loses the text-only `analyze_image` prompt paragraph, if it is present.
+ * loses the text-only `analyze_image` prompt paragraph when it is present in
+ * `system` or in `system`-role message text.
  */
 export function filterDispatchForRoute<T extends DispatchRequest>(
   request: T,
@@ -127,20 +185,24 @@ export function filterDispatchForRoute<T extends DispatchRequest>(
     nextTools !== undefined && nextTools.length !== (tools?.length ?? 0);
   let system = request.system;
   if (vision && typeof system === "string") {
-    const paragraph = visionPromptText();
-    if (paragraph.length > 0 && system.includes(paragraph)) {
-      system = system
-        .replace(paragraph, "")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-    }
+    system = stripVisionParagraph(system);
   }
   const systemChanged = system !== request.system;
-  if (!toolsChanged && !systemChanged) return request;
+  let messages = request.messages;
+  let messagesChanged = false;
+  if (vision && messages !== undefined) {
+    const stripped = stripVisionPromptFromMessages(messages);
+    if (stripped !== messages) {
+      messages = stripped;
+      messagesChanged = true;
+    }
+  }
+  if (!toolsChanged && !systemChanged && !messagesChanged) return request;
   return {
     ...request,
     ...(toolsChanged ? { tools: nextTools } : {}),
     ...(systemChanged ? { system } : {}),
+    ...(messagesChanged ? { messages } : {}),
   };
 }
 

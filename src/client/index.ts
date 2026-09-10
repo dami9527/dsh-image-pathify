@@ -208,7 +208,7 @@ export function apply(ctx: ClientContext): void {
     void loadUpdate();
   });
 
-  // 0.1.1-rc.5/rc.6 declare a list slot (id/order); 0.1.1-rc.7+ is keyed on the
+  // 0.1.0-rc.6 declares a list slot (id/order); 0.1.0-rc.7+ is keyed on the
   // settings namespace. Extra fields are ignored by the other kind.
   ctx.slots.inject("settings.plugin.item", () =>
     ctx.slots.register(

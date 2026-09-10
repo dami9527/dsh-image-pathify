@@ -23,7 +23,7 @@ export const zh = {
   apiKeyUnset: "未配置密钥；配置之前插件不可识图。",
   visionModel: "识图模型",
   visionModelHint:
-    "默认 deepseek-v4-flash-vision-exp。也可填千问/智谱等 OpenAI 兼容识图模型。",
+    "默认 deepseek-flash。也可填千问/智谱等 OpenAI 兼容识图模型。",
   disableThinking: "禁用思考",
   disableThinkingOffHint:
     "思考会占用输出额度，请增大输出上限，或填 0 不传 max_tokens。",
@@ -71,7 +71,7 @@ export const en = {
   apiKeyUnset: "No key is configured; vision is unavailable until one is.",
   visionModel: "Vision model",
   visionModelHint:
-    "Default is deepseek-v4-flash-vision-exp. You can also use Qwen, GLM, or other OpenAI-compatible vision models.",
+    "Default is deepseek-flash. You can also use Qwen, GLM, or other OpenAI-compatible vision models.",
   disableThinking: "Disable thinking",
   disableThinkingOffHint:
     "Thinking consumes the output budget. Raise the cap, or set it to 0 to omit max_tokens.",
