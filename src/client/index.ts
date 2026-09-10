@@ -131,22 +131,7 @@ export function apply(ctx: ClientContext): void {
     const refresh = ((ref: string) => {
       card.refreshCredential(ref);
     }) as (...args: never[]) => void;
-    // 0.1.1-rc.1 renamed the forwarded Host event. Subscribe to both so a
-    // live yaml/`set` still refreshes the "configured" badge on older hosts.
-    const offReference = onUpdated.call(
-      ctx.remote,
-      "credentials/reference-updated",
-      refresh,
-    );
-    const offLegacy = onUpdated.call(
-      ctx.remote,
-      "credentials/updated",
-      refresh,
-    );
-    return () => {
-      offReference();
-      offLegacy();
-    };
+    return onUpdated.call(ctx.remote, "credentials/reference-updated", refresh);
   }, "dsh-image-pathify: credential invalidations");
 
   const loadSettings = async (): Promise<void> => {
@@ -208,15 +193,11 @@ export function apply(ctx: ClientContext): void {
     void loadUpdate();
   });
 
-  // 0.1.0-rc.6 declares a list slot (id/order); 0.1.0-rc.7+ is keyed on the
-  // settings namespace. Extra fields are ignored by the other kind.
   ctx.slots.inject("settings.plugin.item", () =>
     ctx.slots.register(
       {
         name: "settings.plugin.item",
         key: NS,
-        id: NS,
-        order: 30,
         locale: NS,
         inject: (): ImagePathifyCardInjected => card.inject(),
       },

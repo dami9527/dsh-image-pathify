@@ -186,8 +186,6 @@ async function boot(options: BootOptions = {}) {
 
 interface RegisteredPluginCard {
   key: string;
-  id: string;
-  order: number;
   locale: string;
   inject: () => {
     hooks: {
@@ -229,8 +227,6 @@ describe("dsh-image-pathify client apply", () => {
     );
     const card = pluginCard(booted);
     expect(card.key).toBe(NS);
-    expect(card.id).toBe(NS);
-    expect(card.order).toBe(30);
     expect(card.locale).toBe(NS);
     expect(booted.getSettings).toHaveBeenCalled();
     expect(card.inject().hooks.imagePathifyCard.getSnapshot().available).toBe(
@@ -337,14 +333,14 @@ describe("dsh-image-pathify client apply", () => {
     expect(booted.getUpdate).toHaveBeenCalled();
   });
 
-  it("refreshes the configured badge from either credential event name", async () => {
+  it("refreshes the configured badge from credentials/reference-updated", async () => {
     const booted = await boot();
     const face = pluginCard(booted).inject();
     expect(booted.onRemote).toHaveBeenCalledWith(
       "credentials/reference-updated",
       expect.any(Function),
     );
-    expect(booted.onRemote).toHaveBeenCalledWith(
+    expect(booted.onRemote).not.toHaveBeenCalledWith(
       "credentials/updated",
       expect.any(Function),
     );
@@ -357,7 +353,7 @@ describe("dsh-image-pathify client apply", () => {
       .toBe(true);
 
     booted.credentials.delete(DEFAULT_API_KEY_ENV);
-    booted.emitCredential("credentials/updated", DEFAULT_API_KEY_ENV);
+    booted.emitCredential("credentials/reference-updated", DEFAULT_API_KEY_ENV);
     await expect
       .poll(() => face.hooks.imagePathifyCard.getSnapshot().apiKeySet)
       .toBe(false);

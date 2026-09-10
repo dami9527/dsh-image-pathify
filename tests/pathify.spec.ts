@@ -231,19 +231,29 @@ describe("dsh-image-pathify", () => {
     expect(adapter.lastOptions?.messages).toEqual([message]);
   });
 
-  it("leaves the request unchanged when no attachment store exists", async () => {
+  it("does not invent a path when no attachment store exists", async () => {
     const { ctx, adapter } = await setup({ modalities: { model: ["text"] } });
-    const message = imageMessage();
 
     await drain(
       ctx.llm.stream({
         provider: "route",
         model: "model",
-        messages: [message],
+        messages: [imageMessage()],
       }),
     );
 
-    expect(adapter.lastOptions?.messages).toEqual([message]);
+    // The plugin has no store to resolve, so it does not emit
+    // `Saved attachments:`. 0.1.1+ LlmRuntime then replaces leftover image
+    // blocks for text-only models with its own placeholder.
+    const content = adapter.lastOptions?.messages[0]?.content;
+    expect(JSON.stringify(content)).not.toContain("Saved attachments:");
+    expect(content).toEqual([
+      { type: "text", text: "what is in" },
+      {
+        type: "text",
+        text: "[image omitted because this model accepts text only; attachment sha256:aaaaaaaa]",
+      },
+    ]);
   });
 
   it("materializes a readable file for stores without a local root", async () => {

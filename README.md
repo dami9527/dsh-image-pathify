@@ -1,5 +1,7 @@
 # dsh-image-pathify
 
+> 需要 DeepSeek Harness **>= 0.1.1-rc.1**（已在 0.1.5-rc.1 验证）。更早的宿主请继续使用 `dsh-image-pathify@0.1.8`。
+
 让 **deepseek-v4** 这类「不能看图」的模型，也能处理你贴进聊天里的图片，并直接调用插件内置的识图工具。
 
 聊天记录和界面里的缩略图**不会变**。插件只在把消息发给模型前，把图片换成一行本地文件路径；模型再调用 `analyze_image` 读这个文件，通过你配置的视觉 API 得到文字描述。
@@ -63,15 +65,15 @@ dsh plugin --profile web add dsh-image-pathify@version
 
 设置页保存后立即生效。识图字段写在 `$DSH_HOME/settings.yaml` 的 `image-pathify` 段；API 密钥写在 `$DSH_HOME/.credentials.yaml`，不进设置文件。
 
-| 选项              | 默认                           | 做什么                                                                                                                                               |
-| ----------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apiKeyEnv`       | `IMAGE_PATHIFY_API_KEY`        | 凭据引用名。密钥本身写在 `$DSH_HOME/.credentials.yaml`，不进设置文件                                                                                 |
-| `visionModel`     | `deepseek-flash`               | 识图模型 id。                                                                                                                                        |
-| `visionBaseUrl`   | `https://api.deepseek.com`     | OpenAI 兼容基址。(部分地址需要后面加/v1)                                                                                                             |
-| `disableThinking` | `true`                         | 默认勾选。仅 DeepSeek 等支持 `thinking` 的接口会带上该字段，如果需要思考和详细输出请取消勾选，并增大输出上限，防止输出内容被截断(思考也会占用tokens) |
-| `maxTokens`       | `2048`                         | 输出上限。`0` = 不传 `max_tokens`(不传时各家默认值处理方式并不统一)                                                                                  |
-| `models`          | 空 = 全部不能看图的模型        | 只决定**哪些模型允许发图**。空 = 都能发。填了就只放行名单里的模型                                                                                    |
-| `relaxAdmission`  | `true`                         | 允许给不能看图的模型发图。关闭后按模型能力拒绝贴图                                                                                                   |
+| 选项              | 默认                       | 做什么                                                                                                                                               |
+| ----------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apiKeyEnv`       | `IMAGE_PATHIFY_API_KEY`    | 凭据引用名。密钥本身写在 `$DSH_HOME/.credentials.yaml`，不进设置文件                                                                                 |
+| `visionModel`     | `deepseek-flash`           | 识图模型 id。                                                                                                                                        |
+| `visionBaseUrl`   | `https://api.deepseek.com` | OpenAI 兼容基址。(部分地址需要后面加/v1)                                                                                                             |
+| `disableThinking` | `true`                     | 默认勾选。仅 DeepSeek 等支持 `thinking` 的接口会带上该字段，如果需要思考和详细输出请取消勾选，并增大输出上限，防止输出内容被截断(思考也会占用tokens) |
+| `maxTokens`       | `2048`                     | 输出上限。`0` = 不传 `max_tokens`(不传时各家默认值处理方式并不统一)                                                                                  |
+| `models`          | 空 = 全部不能看图的模型    | 只决定**哪些模型允许发图**。空 = 都能发。填了就只放行名单里的模型                                                                                    |
+| `relaxAdmission`  | `true`                     | 允许给不能看图的模型发图。关闭后按模型能力拒绝贴图                                                                                                   |
 
 `apiKeyEnv` 未配置时默认指向 `IMAGE_PATHIFY_API_KEY`, 将 API Key 指向官方环境变量的例子：
 
