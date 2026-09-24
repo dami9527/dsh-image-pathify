@@ -1,6 +1,6 @@
 # dsh-image-pathify
 
-> 需要 DeepSeek Harness **>= 0.1.1-rc.1**（已在 0.1.5-rc.1 验证）。更早的宿主请继续使用 `dsh-image-pathify@0.1.8`。
+> 0.2.0 需要 DeepSeek Harness **>= 0.1.7-rc.1**。dsh 0.1.5 及以下请继续使用 `dsh-image-pathify@0.1.9`。
 
 让 **deepseek-v4** 这类「不能看图」的模型，也能处理你贴进聊天里的图片，并直接调用插件内置的识图工具。
 
@@ -25,7 +25,7 @@ dsh plugin --profile web add dsh-image-pathify
 dsh web
 ```
 
-打开 **设置 → 插件 → 识图**，填写后点保存：
+打开 **插件 → 识图** 进详情页可配置（插件旧版 0.1.x 在 设置 → 插件 → 识图），填写后点保存：
 
 - API 密钥（写入 `$DSH_HOME/.credentials.yaml`，不进设置文件）
 - 识图模型（默认 `deepseek-flash`）
@@ -53,7 +53,7 @@ dsh plugin --profile web add dsh-image-pathify@version
 
 ## 怎么确认可用
 
-1. 设置 → 插件里出现 **识图** 卡片
+1. 插件页里打开 **识图**，详情上方出现识图设置
 2. 给不能看图的模型发一张图：界面里缩略图还在；模型调用 `analyze_image` 而不是 `read_image`
 3. 给不能看图的模型发本地图片路径或图片URL：应直接调用 `analyze_image`，不会先 `read_image`
 4. 给能看图的模型发一张图：模型直接回答，不调用 `analyze_image`
@@ -63,7 +63,7 @@ dsh plugin --profile web add dsh-image-pathify@version
 
 ## 配置
 
-设置页保存后立即生效。识图字段写在 `$DSH_HOME/settings.yaml` 的 `image-pathify` 段；API 密钥写在 `$DSH_HOME/.credentials.yaml`，不进设置文件。
+插件页保存后立即生效。识图字段写在该插件的 Loader 配置里，也就是 `$DSH_HOME/profiles/name/cordis.patch.yml`（0.1.x 写在 `settings.yaml` 的 `image-pathify` 段，**不会**自动导入，需要在插件页重新填写）；API 密钥仍写在 `$DSH_HOME/.credentials.yaml`。
 
 | 选项              | 默认                       | 做什么                                                                                                                                               |
 | ----------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -78,29 +78,36 @@ dsh plugin --profile web add dsh-image-pathify@version
 `apiKeyEnv` 未配置时默认指向 `IMAGE_PATHIFY_API_KEY`, 将 API Key 指向官方环境变量的例子：
 
 ```yaml
-image-pathify:
-  visionModel: deepseek-flash
-  visionBaseUrl: https://api.deepseek.com
-  apiKeyEnv: DEEPSEEK_API_KEY
+- id: dsh-image-pathify
+  name: dsh-image-pathify
+  config:
+    visionModel: deepseek-flash
+    visionBaseUrl: https://api.deepseek.com
+    apiKeyEnv: DEEPSEEK_API_KEY
+  disabled: false
 ```
 
 只允许 deepseek-v4 发图的例子：
 
 ```yaml
-image-pathify:
-  models:
-    - provider: deepseek-official
-      model: deepseek-v4-flash
-    - provider: deepseek-official
-      model: deepseek-v4-pro
+- id: dsh-image-pathify
+  name: dsh-image-pathify
+  config:
+    models:
+      - provider: deepseek-official
+        model: deepseek-v4-flash
+      - provider: deepseek-official
+        model: deepseek-v4-pro
 ```
 
 用千问 DashScope 识图：
 
 ```yaml
-image-pathify:
-  visionModel: qwen-vl-plus
-  visionBaseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+- id: dsh-image-pathify
+  name: dsh-image-pathify
+  config:
+    visionModel: qwen-vl-plus
+    visionBaseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
 ```
 
 模型侧只多一个工具 `analyze_image`（仅不能看图的模型能看见、能调用，防止与具备识图能力的模型冲突）。

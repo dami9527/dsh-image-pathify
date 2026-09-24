@@ -6,7 +6,6 @@ import {
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "../src/defaults.ts";
-import { defaultPublicSettings } from "../src/contract.ts";
 import { ImagePathifyRuntime } from "../src/runtime.ts";
 import { applySettingsUpdate, toPublicSettings } from "../src/settings.ts";
 import { credentialRefName, resolveVisionApiKey } from "../src/credentials.ts";
@@ -97,17 +96,12 @@ describe("ImagePathifyRuntime typertRemote", () => {
   it("exposes the Gateway-visible binding the settings RPC requires", () => {
     const ctx = new Context();
     contexts.push(ctx);
-    new ImagePathifyRuntime(
-      ctx,
-      () => defaultPublicSettings(),
-      async () => defaultPublicSettings(),
-      async () => ({
-        installedVersion: "0.1.0",
-        latestVersion: "0.1.0",
-        updateAvailable: false,
-        command: "dsh plugin --profile web add dsh-image-pathify@0.1.0",
-      }),
-    );
+    new ImagePathifyRuntime(ctx, async () => ({
+      installedVersion: "0.1.0",
+      latestVersion: "0.1.0",
+      updateAvailable: false,
+      command: "dsh plugin --profile web add dsh-image-pathify@0.1.0",
+    }));
     const runtime = ctx.get("imagePathify") as ImagePathifyRuntime | undefined;
     expect(runtime).toBeDefined();
     const original = originalOf(runtime as ImagePathifyRuntime);
@@ -130,12 +124,7 @@ describe("ImagePathifyRuntime typertRemote", () => {
       updateAvailable: true,
       command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
     };
-    new ImagePathifyRuntime(
-      ctx,
-      () => defaultPublicSettings(),
-      async () => defaultPublicSettings(),
-      async () => status,
-    );
+    new ImagePathifyRuntime(ctx, async () => status);
     const runtime = originalOf(
       ctx.get("imagePathify") as ImagePathifyRuntime,
     ) as ImagePathifyRuntime;

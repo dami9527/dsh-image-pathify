@@ -135,9 +135,27 @@ async function setup(options: SetupOptions = {}): Promise<SetupResult> {
   contexts.push(ctx);
   await ctx.plugin(LlmRuntime);
   if (options.attachments !== undefined) {
+    const provided = options.attachments;
+    const root = provided.root;
+    const publishRoot =
+      provided.imageHostPath === undefined &&
+      provided.readImage === undefined &&
+      typeof root === "string"
+        ? {
+            imageHostPath: (ref: ImageAttachmentRef) => {
+              const sha = /^sha256:([a-f0-9]{64})$/.exec(
+                String(ref.attachmentId),
+              )?.[1];
+              return sha === undefined
+                ? ""
+                : join(root, "objects", sha.slice(0, 2), sha);
+            },
+          }
+        : {};
     ctx.provide("attachments", {
       readImage: () => Promise.reject(new Error("unreachable in this test")),
-      ...options.attachments,
+      ...provided,
+      ...publishRoot,
     } as never);
   }
   const adapter = new RecordingAdapter(
@@ -313,7 +331,7 @@ describe("dsh-image-pathify", () => {
     expect(rewritten?.source).toEqual(message.source);
   });
 
-  it("prefers imageHostPath() over imagePath() and a local root", async () => {
+  it("uses imageHostPath() and ignores a legacy imagePath or root", async () => {
     const { ctx, adapter } = await setup({
       attachments: {
         root: "/attachments",
@@ -340,30 +358,42 @@ describe("dsh-image-pathify", () => {
     ]);
   });
 
-  it("falls through to imagePath() when imageHostPath() is absent", async () => {
-    const { ctx, adapter } = await setup({
-      attachments: {
-        root: "/attachments",
-        imagePath: (ref) => `/canonical/${String(ref.attachmentId)}`,
-      },
-      modalities: { model: ["text"] },
-    });
+  it("does not invent a path from imagePath() or root", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "dsh-image-pathify-"));
+    try {
+      const { ctx, adapter } = await setup({
+        attachments: {
+          root: "/attachments",
+          imagePath: () => "/legacy-path",
+          readImage: () =>
+            Promise.resolve({
+              ref: imageBlock().attachment,
+              data: new Uint8Array([1, 2, 3]),
+            }),
+        },
+        modalities: { model: ["text"] },
+      });
+      process.env.DSH_HOME = dir;
 
-    await drain(
-      ctx.llm.stream({
-        provider: "route",
-        model: "model",
-        messages: [imageMessage()],
-      }),
-    );
+      await drain(
+        ctx.llm.stream({
+          provider: "route",
+          model: "model",
+          messages: [imageMessage()],
+        }),
+      );
 
-    expect(adapter.lastOptions?.messages[0]?.content).toEqual([
-      { type: "text", text: "what is in" },
-      {
-        type: "text",
-        text: `Saved attachments: /canonical/sha256:${"a".repeat(64)}`,
-      },
-    ]);
+      const text = adapter.lastOptions?.messages[0]?.content[1];
+      expect((text as { text: string }).text).not.toContain("/legacy-path");
+      expect((text as { text: string }).text).not.toContain(
+        "/attachments/objects",
+      );
+      expect((text as { text: string }).text).toContain(
+        join(dir, "attachments", "vision-paths"),
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("rewrites multiple image blocks in order", async () => {
@@ -402,7 +432,7 @@ describe("dsh-image-pathify", () => {
     ]);
   });
 
-  it("rewrites an image nested in a tool-result for a text-only model", async () => {
+  it("leaves an image nested in a legacy tool-result block untouched", async () => {
     const { ctx, adapter } = await setup({
       attachments: { root: "/attachments" },
       modalities: { model: ["text"] },
@@ -422,23 +452,16 @@ describe("dsh-image-pathify", () => {
       }),
     );
 
-    expect(message.content[0]?.type).toBe("tool-result");
-    expect(adapter.lastOptions?.messages[0]?.content).toEqual([
-      {
-        type: "tool-result",
-        toolCallId: callId,
-        content: [
-          {
-            type: "text",
-            text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
-          },
-        ],
-        isError: false,
-      },
-    ]);
+    const nested = adapter.lastOptions?.messages[0]?.content[0] as {
+      type: string;
+      content: { type: string; text?: string }[];
+    };
+    expect(nested.type).toBe("tool-result");
+    expect(nested.content[0]?.text).toContain("image omitted");
+    expect(nested.content[0]?.text).not.toContain("Saved attachments:");
   });
 
-  it("rewrites both top-level and nested tool-result images", async () => {
+  it("rewrites a top-level image and leaves a nested tool-result image", async () => {
     const { ctx, adapter } = await setup({
       attachments: { root: "/attachments" },
       modalities: { model: ["text"] },
@@ -473,12 +496,11 @@ describe("dsh-image-pathify", () => {
         text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
       },
       {
-        type: "tool-result",
-        toolCallId: nested.toolCallId,
+        ...nested,
         content: [
           {
             type: "text",
-            text: `Saved attachments: /attachments/objects/bb/${"b".repeat(64)}`,
+            text: "[image omitted because this model accepts text only; attachment sha256:bbbbbbbb]",
           },
         ],
       },

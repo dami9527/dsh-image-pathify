@@ -7,9 +7,8 @@
  *
  * The durable session message is NEVER touched: the Web UI keeps rendering
  * thumbnails from the real image block; only the adapter-facing request is
- * rewritten, immediately before dispatch. Nested `tool-result` images
- * (for example a prior `read_image` after switching to a text-only model)
- * are rewritten the same way as top-level blocks.
+ * rewritten, immediately before dispatch. Top-level image blocks are
+ * rewritten, including images on `role: "tool"` messages.
  * @module dsh-image-pathify/pathify
  */
 
@@ -28,9 +27,6 @@ import type {
 import { contentHasImage, freezeMessage } from "@deepseek-ai/dsh-llm";
 import { DEFAULT_PREFIX } from "./defaults.ts";
 import { deepFreeze } from "./freeze.ts";
-
-/** Content-addressed reference shape the local store mints and resolves. */
-const ID_PATTERN = /^sha256:([a-f0-9]{64})$/;
 
 /** Media type to file extension for materialized fallback copies. */
 const MEDIA_EXTENSION: Readonly<Record<string, string>> = {
@@ -51,14 +47,14 @@ export function messagesHaveImage(messages: readonly Message[]): boolean {
 }
 
 /**
- * Call one optional store path method. 0.1.2's `imageHostPath` throws on a
- * malformed ref; treat that as "no published path" and keep falling through.
+ * The host publishes the durable file through `imageHostPath()`. A throw
+ * (malformed ref) means there is no published path; fall through to a copy.
  */
-function publishedByMethod(
-  method: unknown,
+function publishedImagePath(
   attachments: AttachmentStore,
   ref: ImageAttachmentRef,
 ): string | undefined {
+  const method = (attachments as { imageHostPath?: unknown }).imageHostPath;
   if (typeof method !== "function") return undefined;
   try {
     const path = (method as (next: ImageAttachmentRef) => unknown).call(
@@ -69,34 +65,6 @@ function publishedByMethod(
   } catch {
     return undefined;
   }
-}
-
-/**
- * Prefer a store-published path when the host already exposes one.
- *
- * 0.1.2-alpha.1 names this `imageHostPath()`. Earlier local stores used
- * `imagePath()`, or only published `root` plus the content-addressed object
- * layout (`objects/<sha256[0:2]>/<sha256>`). Any of those is a zero-copy
- * path the vision helper can read; anything else falls through to materialize.
- */
-function publishedImagePath(
-  attachments: AttachmentStore,
-  ref: ImageAttachmentRef,
-): string | undefined {
-  const store = attachments as {
-    imageHostPath?: unknown;
-    imagePath?: unknown;
-    root?: unknown;
-  };
-  const published =
-    publishedByMethod(store.imageHostPath, attachments, ref) ??
-    publishedByMethod(store.imagePath, attachments, ref);
-  if (published !== undefined) return published;
-  if (typeof store.root !== "string") return undefined;
-  const sha = ID_PATTERN.exec(String(ref.attachmentId))?.[1];
-  return sha === undefined
-    ? undefined
-    : join(store.root, "objects", sha.slice(0, 2), sha);
 }
 
 function fallbackFilePath(ref: ImageAttachmentRef): string {
@@ -140,8 +108,9 @@ export async function resolveImagePath(
 }
 
 /**
- * Rewrite image blocks in one content list, including nested `tool-result`
- * content. Unchanged lists and blocks keep their identity.
+ * Rewrite top-level image blocks. Unchanged lists and blocks keep their identity.
+ * Tool messages on 0.1.7 carry images at the top level, not inside a nested
+ * `tool-result` block.
  */
 async function rewriteBlocks(
   blocks: readonly ContentBlock[],
@@ -150,20 +119,9 @@ async function rewriteBlocks(
 ): Promise<readonly ContentBlock[]> {
   const next = await Promise.all(
     blocks.map(async (block): Promise<ContentBlock> => {
-      if (block.type === "image") {
-        const path = await resolveImagePath(
-          attachments,
-          block.attachment,
-          signal,
-        );
-        return { type: "text", text: `${DEFAULT_PREFIX}${path}` };
-      }
-      if (block.type === "tool-result") {
-        const content = await rewriteBlocks(block.content, attachments, signal);
-        if (content === block.content) return block;
-        return { ...block, content: [...content] };
-      }
-      return block;
+      if (block.type !== "image") return block;
+      const path = await resolveImagePath(attachments, block.attachment, signal);
+      return { type: "text", text: `${DEFAULT_PREFIX}${path}` };
     }),
   );
   if (next.every((block, index) => block === blocks[index])) return blocks;
@@ -171,9 +129,8 @@ async function rewriteBlocks(
 }
 
 /**
- * Rewrite the adapter-facing request: every image block — top-level or nested
- * in `tool-result.content` — becomes a text block carrying the durable file
- * path (one text block per image).
+ * Rewrite the adapter-facing request: every top-level image block becomes a
+ * text block carrying the durable file path (one text block per image).
  *
  * @param options - the request to rewrite; messages are replaced only when
  * the request actually carries images.

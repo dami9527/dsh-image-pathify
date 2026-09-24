@@ -1,10 +1,8 @@
 /**
  * Credentials wire used by the Vision card.
  *
- * 0.1.2-alpha.1 moved the browser credentials API off `connection.api` onto
- * `ctx.remote.credentials` (and changed the call shape). Older hosts still
- * expose the RPC bag on `connection.api.credentials`. This module speaks both
- * and never reads `.credentials` off a missing `api`.
+ * 0.1.7 exposes credentials on `ctx.remote.credentials`: `describe([ref])`
+ * and `set(ref, value)`.
  * @module dsh-image-pathify/client/credentials-api
  */
 
@@ -19,11 +17,6 @@ interface CredentialsMethods {
   describe: (...args: never[]) => Promise<unknown>;
   set: (...args: never[]) => Promise<unknown>;
 }
-
-/** Where the live credentials methods were found. */
-export type CredentialsSource =
-  | { kind: "remote"; api: CredentialsMethods }
-  | { kind: "legacy"; api: CredentialsMethods };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -47,27 +40,17 @@ function viewOf(
   };
 }
 
-/**
- * Pick the credentials methods for this host.
- *
- * Prefer the 0.1.2 Remote namespace; fall back to the older Connection RPC
- * bag. `connection.api` is optional-chained: 0.1.2 still provides `connection`
- * but no longer mounts `api` on it.
- */
-export function resolveCredentialsSource(
+/** The live `remote.credentials` methods, when the host has mounted them. */
+export function resolveCredentialsApi(
   ctx: CredentialsLookup,
-): CredentialsSource | undefined {
+): CredentialsMethods | undefined {
   const nested = ctx.get("remote.credentials");
-  if (isCredentialsMethods(nested)) return { kind: "remote", api: nested };
+  if (isCredentialsMethods(nested)) return nested;
   const remote = ctx.get("remote");
   if (isRecord(remote) && isCredentialsMethods(remote.credentials)) {
-    return { kind: "remote", api: remote.credentials };
+    return remote.credentials;
   }
-  const connection = ctx.get("connection");
-  if (!isRecord(connection) || !isRecord(connection.api)) return undefined;
-  return isCredentialsMethods(connection.api.credentials)
-    ? { kind: "legacy", api: connection.api.credentials }
-    : undefined;
+  return undefined;
 }
 
 function describeView(
@@ -90,29 +73,23 @@ function setRefused(result: unknown): boolean {
 }
 
 /**
- * Wrap one credentials source as the card's describe/set face.
- * @param source - live host methods, or undefined when neither wire exists.
+ * Wrap the credentials namespace as the card's describe/set face.
+ * @param api - live host methods, or undefined when the namespace is absent.
  */
 export function credentialsFace(
-  source: CredentialsSource | undefined,
+  api: CredentialsMethods | undefined,
 ): VisionCredentialFace {
   return {
     async describe(ref) {
-      if (source === undefined) return { configured: false, writable: true };
-      const result =
-        source.kind === "remote"
-          ? await source.api.describe([ref] as never)
-          : await source.api.describe({ refs: [ref] } as never);
+      if (api === undefined) return { configured: false, writable: true };
+      const result = await api.describe([ref] as never);
       return describeView(result, ref) ?? { configured: false, writable: true };
     },
     async set(ref, value) {
-      if (source === undefined) {
+      if (api === undefined) {
         throw new Error("the credentials API is not available");
       }
-      const result =
-        source.kind === "remote"
-          ? await source.api.set(ref as never, value as never)
-          : await source.api.set({ ref, value } as never);
+      const result = await api.set(ref as never, value as never);
       if (setRefused(result)) {
         throw new Error("credentials.set refused");
       }
@@ -128,10 +105,10 @@ export function credentialsFace(
 export function liveCredentials(ctx: CredentialsLookup): VisionCredentialFace {
   return {
     describe(ref) {
-      return credentialsFace(resolveCredentialsSource(ctx)).describe(ref);
+      return credentialsFace(resolveCredentialsApi(ctx)).describe(ref);
     },
     set(ref, value) {
-      return credentialsFace(resolveCredentialsSource(ctx)).set(ref, value);
+      return credentialsFace(resolveCredentialsApi(ctx)).set(ref, value);
     },
   };
 }

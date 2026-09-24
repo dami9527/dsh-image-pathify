@@ -37,24 +37,6 @@ export interface ImagePathifyCardProps {
   removeModel: (provider: string, model: string) => void;
 }
 
-function ChevronIcon({ className }: { className: string }): ReactElement {
-  return (
-    <svg
-      width={14}
-      height={14}
-      className={className}
-      viewBox="0 0 14 14"
-      fill="none"
-      aria-hidden
-    >
-      <path
-        d="M11.8486 5.5L11.4238 5.92383L8.69727 8.65137C8.44157 8.90706 8.21562 9.13382 8.01172 9.29785C7.79912 9.46883 7.55595 9.61756 7.25 9.66602C7.08435 9.69222 6.91565 9.69222 6.75 9.66602C6.44405 9.61756 6.20088 9.46883 5.98828 9.29785C5.78438 9.13382 5.55843 8.90706 5.30273 8.65137L2.57617 5.92383L2.15137 5.5L3 4.65137L3.42383 5.07617L6.15137 7.80273C6.42595 8.07732 6.59876 8.24849 6.74023 8.3623C6.87291 8.46904 6.92272 8.47813 6.9375 8.48047C6.97895 8.48703 7.02105 8.48703 7.0625 8.48047C7.07728 8.47813 7.12709 8.46904 7.25977 8.3623C7.40124 8.24849 7.57405 8.07732 7.84863 7.80273L10.5762 5.07617L11 4.65137L11.8486 5.5Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
 function RemoveIcon(): ReactElement {
   return (
     <svg viewBox="0 0 16 16" aria-hidden>
@@ -151,7 +133,6 @@ export function ImagePathifyCard({
   addModel,
   removeModel,
 }: ImagePathifyCardProps): ReactElement | null {
-  const [open, setOpen] = useState(false);
   const [providerDraft, setProviderDraft] = useState("");
   const [modelDraft, setModelDraft] = useState("");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
@@ -169,7 +150,6 @@ export function ImagePathifyCard({
   }, [copyState]);
   if (!state.available) return null;
 
-  const title = t("title");
   const disabled = !state.writable || state.saving;
   const blocked = !state.dirty || state.invalid || state.saving;
   const translate = (
@@ -202,372 +182,322 @@ export function ImagePathifyCard({
         : t("updateCopy");
 
   return (
-    <li
-      className={
-        open
-          ? "dsh_imagePathify_card dsh_imagePathify_cardOpen"
-          : "dsh_imagePathify_card"
-      }
-    >
-      <div
-        className={
-          state.update !== undefined
-            ? "dsh_imagePathify_head dsh_imagePathify_headHasUpdate"
-            : "dsh_imagePathify_head"
-        }
-      >
-        <button
-          type="button"
-          className="dsh_imagePathify_header"
-          aria-expanded={open}
-          aria-label={`${t(open ? "collapse" : "expand")}: ${title}`}
-          onClick={() => {
-            setOpen(!open);
-          }}
-        >
-          <span className="dsh_imagePathify_headText">
-            <span className="dsh_imagePathify_nameRow">
-              <span className="dsh_imagePathify_name">{title}</span>
-              {state.installedVersion.length > 0 ? (
-                <span className="dsh_imagePathify_version">
-                  v{state.installedVersion}
-                </span>
-              ) : null}
-            </span>
-            <span className="dsh_imagePathify_description">
-              {t("description")}
-            </span>
+    <div className="dsh_imagePathify_form">
+      {state.update !== undefined ? (
+        <div className="dsh_imagePathify_update" role="status">
+          <span className="dsh_imagePathify_updateText">
+            {translate("updateHint", {
+              old: state.update.installedVersion,
+              new: state.update.latestVersion,
+            })}
           </span>
-          {state.dirty ? (
-            <span className="dsh_imagePathify_pending">{t("unsaved")}</span>
-          ) : null}
-          <ChevronIcon
-            className={
-              open
-                ? "dsh_imagePathify_chevron dsh_imagePathify_chevronOpen"
-                : "dsh_imagePathify_chevron"
-            }
-          />
-        </button>
-        {state.update !== undefined ? (
-          <div className="dsh_imagePathify_update" role="status">
-            <span className="dsh_imagePathify_updateText">
-              {translate("updateHint", {
-                old: state.update.installedVersion,
-                new: state.update.latestVersion,
-              })}
-            </span>
-            <button
-              type="button"
-              className="dsh_imagePathify_updateCopy"
-              onClick={copyUpgrade}
+          <button
+            type="button"
+            className="dsh_imagePathify_updateCopy"
+            onClick={copyUpgrade}
+          >
+            {copyLabel}
+          </button>
+        </div>
+      ) : null}
+      <div className="dsh_imagePathify_body">
+        <div className="dsh_imagePathify_field">
+          <div className="dsh_imagePathify_fieldHead">
+            <label
+              className="dsh_imagePathify_label"
+              htmlFor="plugin-config-image-pathify-key"
             >
-              {copyLabel}
-            </button>
-          </div>
-        ) : null}
-      </div>
-      {open ? (
-        <div className="dsh_imagePathify_body">
-          <div className="dsh_imagePathify_field">
-            <div className="dsh_imagePathify_fieldHead">
-              <label
-                className="dsh_imagePathify_label"
-                htmlFor="plugin-config-image-pathify-key"
+              {t("apiKey")}
+            </label>
+            <span className="dsh_imagePathify_badges">
+              <span
+                className={
+                  state.apiKeySet
+                    ? "dsh_imagePathify_badge"
+                    : "dsh_imagePathify_badgeMuted"
+                }
               >
-                {t("apiKey")}
-              </label>
-              <span className="dsh_imagePathify_badges">
-                <span
-                  className={
-                    state.apiKeySet
-                      ? "dsh_imagePathify_badge"
-                      : "dsh_imagePathify_badgeMuted"
-                  }
-                >
-                  {state.apiKeySet ? t("apiKeySet") : t("apiKeyUnset")}
-                </span>
+                {state.apiKeySet ? t("apiKeySet") : t("apiKeyUnset")}
               </span>
-            </div>
-            <input
-              id="plugin-config-image-pathify-key"
-              className="dsh_imagePathify_input"
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              value={state.apiKeyText}
-              disabled={state.saving || !state.apiKeyWritable}
-              onChange={(event) => {
-                edit("apiKey", event.target.value);
+            </span>
+          </div>
+          <input
+            id="plugin-config-image-pathify-key"
+            className="dsh_imagePathify_input"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={state.apiKeyText}
+            disabled={state.saving || !state.apiKeyWritable}
+            onChange={(event) => {
+              edit("apiKey", event.target.value);
+            }}
+          />
+          <p className="dsh_imagePathify_hint">{t("apiKeyHint")}</p>
+        </div>
+
+        <div className="dsh_imagePathify_field">
+          <div className="dsh_imagePathify_fieldHead">
+            <label
+              className="dsh_imagePathify_label"
+              htmlFor="plugin-config-image-pathify-model"
+            >
+              {t("visionModel")}
+            </label>
+            <OverrideBadges
+              overridden={
+                state.visionModel.overridden || state.disableThinking.overridden
+              }
+              disabled={disabled}
+              overriddenLabel={t("overridden")}
+              resetLabel={t("reset")}
+              onReset={() => {
+                resetField("visionModel");
+                resetField("disableThinking");
               }}
             />
-            <p className="dsh_imagePathify_hint">{t("apiKeyHint")}</p>
           </div>
-
-          <div className="dsh_imagePathify_field">
-            <div className="dsh_imagePathify_fieldHead">
-              <label
-                className="dsh_imagePathify_label"
-                htmlFor="plugin-config-image-pathify-model"
-              >
-                {t("visionModel")}
-              </label>
-              <OverrideBadges
-                overridden={
-                  state.visionModel.overridden ||
-                  state.disableThinking.overridden
-                }
-                disabled={disabled}
-                overriddenLabel={t("overridden")}
-                resetLabel={t("reset")}
-                onReset={() => {
-                  resetField("visionModel");
-                  resetField("disableThinking");
-                }}
-              />
-            </div>
-            <div className="dsh_imagePathify_modelRow">
+          <div className="dsh_imagePathify_modelRow">
+            <input
+              id="plugin-config-image-pathify-model"
+              className="dsh_imagePathify_input"
+              spellCheck={false}
+              value={state.visionModel.text}
+              disabled={disabled}
+              onChange={(event) => {
+                edit("visionModel", event.target.value);
+              }}
+            />
+            <label className="dsh_imagePathify_inlineToggle">
               <input
-                id="plugin-config-image-pathify-model"
-                className="dsh_imagePathify_input"
-                spellCheck={false}
-                value={state.visionModel.text}
+                type="checkbox"
+                checked={state.disableThinking.checked}
                 disabled={disabled}
                 onChange={(event) => {
-                  edit("visionModel", event.target.value);
+                  setDisableThinking(event.target.checked);
                 }}
               />
-              <label className="dsh_imagePathify_inlineToggle">
-                <input
-                  type="checkbox"
-                  checked={state.disableThinking.checked}
-                  disabled={disabled}
-                  onChange={(event) => {
-                    setDisableThinking(event.target.checked);
-                  }}
-                />
-                <span>{t("disableThinking")}</span>
-              </label>
-            </div>
-            <p className="dsh_imagePathify_hint">{t("visionModelHint")}</p>
-            {state.disableThinking.checked ? null : (
-              <p className="dsh_imagePathify_hint">
-                {t("disableThinkingOffHint")}
-              </p>
+              <span>{t("disableThinking")}</span>
+            </label>
+          </div>
+          <p className="dsh_imagePathify_hint">{t("visionModelHint")}</p>
+          {state.disableThinking.checked ? null : (
+            <p className="dsh_imagePathify_hint">
+              {t("disableThinkingOffHint")}
+            </p>
+          )}
+        </div>
+
+        <div className="dsh_imagePathify_field">
+          <div className="dsh_imagePathify_fieldHead">
+            <label
+              className="dsh_imagePathify_label"
+              htmlFor="plugin-config-image-pathify-url"
+            >
+              {t("visionBaseUrl")}
+            </label>
+            <OverrideBadges
+              overridden={state.visionBaseUrl.overridden}
+              disabled={disabled}
+              overriddenLabel={t("overridden")}
+              resetLabel={t("reset")}
+              onReset={() => {
+                resetField("visionBaseUrl");
+              }}
+            />
+          </div>
+          <input
+            id="plugin-config-image-pathify-url"
+            className="dsh_imagePathify_input"
+            spellCheck={false}
+            value={state.visionBaseUrl.text}
+            disabled={disabled}
+            onChange={(event) => {
+              edit("visionBaseUrl", event.target.value);
+            }}
+          />
+          <p className="dsh_imagePathify_hint">{t("visionBaseUrlHint")}</p>
+        </div>
+
+        <div className="dsh_imagePathify_field">
+          <div className="dsh_imagePathify_fieldHead">
+            <label
+              className="dsh_imagePathify_label"
+              htmlFor="plugin-config-image-pathify-max-tokens"
+            >
+              {t("maxTokens")}
+            </label>
+            <OverrideBadges
+              overridden={state.maxTokens.overridden}
+              disabled={disabled}
+              overriddenLabel={t("overridden")}
+              resetLabel={t("reset")}
+              onReset={() => {
+                resetField("maxTokens");
+              }}
+            />
+          </div>
+          <input
+            id="plugin-config-image-pathify-max-tokens"
+            className="dsh_imagePathify_input"
+            inputMode="numeric"
+            spellCheck={false}
+            value={state.maxTokens.text}
+            disabled={disabled}
+            onChange={(event) => {
+              edit("maxTokens", event.target.value);
+            }}
+          />
+          <p className="dsh_imagePathify_hint">{t("maxTokensHint")}</p>
+        </div>
+
+        <div className="dsh_imagePathify_field">
+          <div className="dsh_imagePathify_fieldHead">
+            <label className="dsh_imagePathify_toggle">
+              <input
+                type="checkbox"
+                checked={state.relaxAdmission.checked}
+                disabled={disabled}
+                onChange={(event) => {
+                  setRelaxAdmission(event.target.checked);
+                }}
+              />
+              <span className="dsh_imagePathify_label">
+                {t("relaxAdmission")}
+              </span>
+            </label>
+            <OverrideBadges
+              overridden={state.relaxAdmission.overridden}
+              disabled={disabled}
+              overriddenLabel={t("overridden")}
+              resetLabel={t("reset")}
+              onReset={() => {
+                resetField("relaxAdmission");
+              }}
+            />
+          </div>
+          <p className="dsh_imagePathify_hint">{t("relaxAdmissionHint")}</p>
+        </div>
+
+        <div className="dsh_imagePathify_field">
+          <div className="dsh_imagePathify_fieldHead">
+            <span className="dsh_imagePathify_label">{t("models")}</span>
+            <OverrideBadges
+              overridden={state.models.overridden}
+              disabled={disabled}
+              overriddenLabel={t("overridden")}
+              resetLabel={t("reset")}
+              onReset={() => {
+                resetField("models");
+              }}
+            />
+          </div>
+          <p className="dsh_imagePathify_hint">{t("modelsHint")}</p>
+          <div className="dsh_imagePathify_list" aria-live="polite">
+            {state.models.entries.length === 0 ? (
+              <div className="dsh_imagePathify_empty">{t("modelsEmpty")}</div>
+            ) : (
+              state.models.entries.map((entry) => (
+                <div
+                  className="dsh_imagePathify_filterRow"
+                  key={modelKey(entry)}
+                >
+                  <code className="dsh_imagePathify_filterName">
+                    {entry.provider} / {entry.model}
+                  </code>
+                  <button
+                    type="button"
+                    className="dsh_imagePathify_filterRemove"
+                    title={translate("remove", {
+                      name: `${entry.provider}/${entry.model}`,
+                    })}
+                    aria-label={translate("remove", {
+                      name: `${entry.provider}/${entry.model}`,
+                    })}
+                    disabled={disabled}
+                    onClick={() => {
+                      removeModel(entry.provider, entry.model);
+                    }}
+                  >
+                    <RemoveIcon />
+                  </button>
+                </div>
+              ))
             )}
           </div>
-
-          <div className="dsh_imagePathify_field">
-            <div className="dsh_imagePathify_fieldHead">
-              <label
-                className="dsh_imagePathify_label"
-                htmlFor="plugin-config-image-pathify-url"
-              >
-                {t("visionBaseUrl")}
-              </label>
-              <OverrideBadges
-                overridden={state.visionBaseUrl.overridden}
-                disabled={disabled}
-                overriddenLabel={t("overridden")}
-                resetLabel={t("reset")}
-                onReset={() => {
-                  resetField("visionBaseUrl");
-                }}
-              />
-            </div>
+          <div className="dsh_imagePathify_row">
             <input
-              id="plugin-config-image-pathify-url"
               className="dsh_imagePathify_input"
               spellCheck={false}
-              value={state.visionBaseUrl.text}
               disabled={disabled}
+              value={providerDraft}
+              placeholder={t("providerPlaceholder")}
               onChange={(event) => {
-                edit("visionBaseUrl", event.target.value);
+                setProviderDraft(event.target.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                commitModel();
               }}
             />
-            <p className="dsh_imagePathify_hint">{t("visionBaseUrlHint")}</p>
-          </div>
-
-          <div className="dsh_imagePathify_field">
-            <div className="dsh_imagePathify_fieldHead">
-              <label
-                className="dsh_imagePathify_label"
-                htmlFor="plugin-config-image-pathify-max-tokens"
-              >
-                {t("maxTokens")}
-              </label>
-              <OverrideBadges
-                overridden={state.maxTokens.overridden}
-                disabled={disabled}
-                overriddenLabel={t("overridden")}
-                resetLabel={t("reset")}
-                onReset={() => {
-                  resetField("maxTokens");
-                }}
-              />
-            </div>
             <input
-              id="plugin-config-image-pathify-max-tokens"
               className="dsh_imagePathify_input"
-              inputMode="numeric"
               spellCheck={false}
-              value={state.maxTokens.text}
               disabled={disabled}
+              value={modelDraft}
+              placeholder={t("modelPlaceholder")}
               onChange={(event) => {
-                edit("maxTokens", event.target.value);
+                setModelDraft(event.target.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                commitModel();
               }}
             />
-            <p className="dsh_imagePathify_hint">{t("maxTokensHint")}</p>
-          </div>
-
-          <div className="dsh_imagePathify_field">
-            <div className="dsh_imagePathify_fieldHead">
-              <label className="dsh_imagePathify_toggle">
-                <input
-                  type="checkbox"
-                  checked={state.relaxAdmission.checked}
-                  disabled={disabled}
-                  onChange={(event) => {
-                    setRelaxAdmission(event.target.checked);
-                  }}
-                />
-                <span className="dsh_imagePathify_label">
-                  {t("relaxAdmission")}
-                </span>
-              </label>
-              <OverrideBadges
-                overridden={state.relaxAdmission.overridden}
-                disabled={disabled}
-                overriddenLabel={t("overridden")}
-                resetLabel={t("reset")}
-                onReset={() => {
-                  resetField("relaxAdmission");
-                }}
-              />
-            </div>
-            <p className="dsh_imagePathify_hint">{t("relaxAdmissionHint")}</p>
-          </div>
-
-          <div className="dsh_imagePathify_field">
-            <div className="dsh_imagePathify_fieldHead">
-              <span className="dsh_imagePathify_label">{t("models")}</span>
-              <OverrideBadges
-                overridden={state.models.overridden}
-                disabled={disabled}
-                overriddenLabel={t("overridden")}
-                resetLabel={t("reset")}
-                onReset={() => {
-                  resetField("models");
-                }}
-              />
-            </div>
-            <p className="dsh_imagePathify_hint">{t("modelsHint")}</p>
-            <div className="dsh_imagePathify_list" aria-live="polite">
-              {state.models.entries.length === 0 ? (
-                <div className="dsh_imagePathify_empty">{t("modelsEmpty")}</div>
-              ) : (
-                state.models.entries.map((entry) => (
-                  <div
-                    className="dsh_imagePathify_filterRow"
-                    key={modelKey(entry)}
-                  >
-                    <code className="dsh_imagePathify_filterName">
-                      {entry.provider} / {entry.model}
-                    </code>
-                    <button
-                      type="button"
-                      className="dsh_imagePathify_filterRemove"
-                      title={translate("remove", {
-                        name: `${entry.provider}/${entry.model}`,
-                      })}
-                      aria-label={translate("remove", {
-                        name: `${entry.provider}/${entry.model}`,
-                      })}
-                      disabled={disabled}
-                      onClick={() => {
-                        removeModel(entry.provider, entry.model);
-                      }}
-                    >
-                      <RemoveIcon />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="dsh_imagePathify_row">
-              <input
-                className="dsh_imagePathify_input"
-                spellCheck={false}
-                disabled={disabled}
-                value={providerDraft}
-                placeholder={t("providerPlaceholder")}
-                onChange={(event) => {
-                  setProviderDraft(event.target.value);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  commitModel();
-                }}
-              />
-              <input
-                className="dsh_imagePathify_input"
-                spellCheck={false}
-                disabled={disabled}
-                value={modelDraft}
-                placeholder={t("modelPlaceholder")}
-                onChange={(event) => {
-                  setModelDraft(event.target.value);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  commitModel();
-                }}
-              />
-              <button
-                type="button"
-                className="dsh_imagePathify_addButton"
-                disabled={
-                  disabled ||
-                  providerDraft.trim().length === 0 ||
-                  modelDraft.trim().length === 0
-                }
-                onClick={() => {
-                  commitModel();
-                }}
-              >
-                <PlusIcon />
-                <span>{t("add")}</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="dsh_imagePathify_footer">
-            {state.failed ? (
-              <p className="dsh_imagePathify_failed" role="status">
-                {t("saveFailed")}
-              </p>
-            ) : null}
             <button
               type="button"
-              className="dsh_imagePathify_discard"
-              disabled={!state.dirty || state.saving}
-              onClick={discard}
+              className="dsh_imagePathify_addButton"
+              disabled={
+                disabled ||
+                providerDraft.trim().length === 0 ||
+                modelDraft.trim().length === 0
+              }
+              onClick={() => {
+                commitModel();
+              }}
             >
-              {t("discard")}
-            </button>
-            <button
-              type="button"
-              className="dsh_imagePathify_save"
-              disabled={blocked}
-              onClick={save}
-            >
-              {t(state.saving ? "saving" : "save")}
+              <PlusIcon />
+              <span>{t("add")}</span>
             </button>
           </div>
         </div>
-      ) : null}
-    </li>
+
+        <div className="dsh_imagePathify_footer">
+          {state.failed ? (
+            <p className="dsh_imagePathify_failed" role="status">
+              {t("saveFailed")}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="dsh_imagePathify_save"
+            disabled={blocked}
+            onClick={save}
+          >
+            {t(state.saving ? "saving" : "save")}
+          </button>
+          <button
+            type="button"
+            className="dsh_imagePathify_discard"
+            disabled={!state.dirty || state.saving}
+            onClick={discard}
+          >
+            {t("discard")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

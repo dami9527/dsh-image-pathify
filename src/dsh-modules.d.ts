@@ -59,7 +59,7 @@ declare module "@deepseek-ai/dsh-typert-protocol" {
     | {
         readonly mode: "strict";
         readonly typeSymbol: string;
-        readonly schema: TypertSchema;
+        readonly create: () => TypertSchema;
       }
     | { readonly mode: "src-json" };
   export interface InvocationParameterDescriptor {
@@ -158,13 +158,33 @@ declare module "@deepseek-ai/dsh-client-runtime/client" {
       inject(name: string, factory: () => unknown): unknown;
       register(options: Record<string, unknown>, component: unknown): unknown;
     };
+    configForms: {
+      get(entryId: string): {
+        getSnapshot(): {
+          status: "loading" | "ready" | "unavailable";
+          value: Record<string, unknown>;
+          revision: number;
+          writable: boolean;
+        };
+        subscribe(listener: () => void): () => void;
+        mutate(
+          ops: readonly { op: "set"; path: readonly string[]; value: unknown }[],
+          revision: number,
+        ): Promise<boolean>;
+      };
+      whileServed(
+        namespaces: readonly string[],
+        register: () => unknown,
+      ): () => void;
+    };
     reflect?: { get(name: string): unknown };
   }
 }
 
+declare module "@deepseek-ai/dsh-client-ui-plugin-manager/client" {}
+
 declare module "@deepseek-ai/dsh-client-locale/client" {}
 declare module "@deepseek-ai/dsh-client-ui-settings/client" {}
-declare module "@deepseek-ai/dsh-client-ui-settings-plugins/client" {}
 declare module "@deepseek-ai/dsh-api-remotes/client" {}
 declare module "@deepseek-ai/dsh-client-connection/client" {
   export interface CredentialView {

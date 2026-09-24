@@ -1,6 +1,6 @@
 /**
- * dsh-image-pathify client plugin: registers the Vision card on the Plugins
- * settings page, locale dictionaries, and the plugin-owned settings Remote.
+ * dsh-image-pathify client plugin: registers the Vision card on the plugin
+ * bundle page (above the row list), locale dictionaries, and the update probe.
  * Components never see `ctx`.
  */
 import type {} from "@deepseek-ai/dsh-api-remotes/client";
@@ -8,12 +8,12 @@ import type {} from "@deepseek-ai/dsh-client-connection/client";
 import type { ClientContext } from "@deepseek-ai/dsh-client-runtime/client";
 import type {} from "@deepseek-ai/dsh-client-locale/client";
 import type {} from "@deepseek-ai/dsh-client-ui-settings/client";
-// Type-only: the keyed `settings.plugin.item` slot declaration.
-import type {} from "@deepseek-ai/dsh-client-ui-settings-plugins/client";
-import type {
-  ImagePathifyPublicSettings,
-  ImagePathifySettingsUpdate,
-  ImagePathifyUpdateStatus,
+import type {} from "@deepseek-ai/dsh-client-ui-plugin-manager/client";
+import {
+  publicSettingsSchema,
+  type ImagePathifyPublicSettings,
+  type ImagePathifySettingsUpdate,
+  type ImagePathifyUpdateStatus,
 } from "../contract.ts";
 import { ImagePathifyCardController } from "./card-form.ts";
 import {
@@ -25,21 +25,21 @@ import { NS, en, zh } from "./locales.ts";
 import { IMAGE_PATHIFY_REMOTE } from "./remote.ts";
 import { adoptStyles } from "./styles.ts";
 
-/** Required services: slots, locale, credentials wire, and the Remote carrier. */
-export const inject = ["slots", "locale", "connection", "remote"];
+/** Loader entry id. Also the `plugins.bundle.config` slot key. */
+export const ENTRY_ID = "dsh-image-pathify";
+
+/** Required services: slots, locale, the entry form, credentials, and the probe. */
+export const inject = [
+  "slots",
+  "locale",
+  "connection",
+  "remote",
+  "remote.credentials",
+  "configForms",
+];
 
 /** The mounted imagePathify namespace service's callable face. */
 interface ImagePathifyNamespaceFace {
-  getSettings(): Promise<
-    | { ok: true; value: ImagePathifyPublicSettings }
-    | { ok: false; error: { code: string; message: string; details: object } }
-  >;
-  updateSettings(
-    update: ImagePathifySettingsUpdate,
-  ): Promise<
-    | { ok: true; value: ImagePathifyPublicSettings }
-    | { ok: false; error: { code: string; message: string; details: object } }
-  >;
   getUpdate(): Promise<
     | { ok: true; value: ImagePathifyUpdateStatus }
     | { ok: false; error: { code: string; message: string; details: object } }
@@ -47,7 +47,8 @@ interface ImagePathifyNamespaceFace {
 }
 
 /**
- * Compose the Vision plugin card under Settings → Plugins.
+ * Compose the Vision card on the installed-plugin page, above the row list.
+ * The page does not pass a form; this plugin reads `configForms` itself.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -57,56 +58,51 @@ export function apply(ctx: ClientContext): void {
     "dsh-image-pathify: dictionaries",
   );
 
-  let settingsGeneration = 0;
-  let settingsTail: Promise<void> = Promise.resolve();
+  const form = ctx.configForms.get(ENTRY_ID);
   let remote: ImagePathifyNamespaceFace | undefined;
+  let settingsTail: Promise<void> = Promise.resolve();
 
-  const reportSettingsError = (
-    operation: "read" | "update",
-    error: { code: string; message: string } | unknown,
-  ): void => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      "message" in error
-    ) {
-      const remoteError = error as { code: string; message: string };
-      console.error(
-        `[dsh-image-pathify] settings ${operation} failed: ${remoteError.code}: ${remoteError.message}`,
-      );
+  const readForm = (): ImagePathifyPublicSettings | undefined => {
+    const snapshot = form.getSnapshot();
+    if (snapshot.status !== "ready") return undefined;
+    try {
+      return publicSettingsSchema.parse(snapshot.value);
+    } catch (error) {
+      console.error("[dsh-image-pathify] settings read failed:", error);
+      return undefined;
+    }
+  };
+
+  const publishForm = (): void => {
+    const value = readForm();
+    if (value === undefined) {
+      if (form.getSnapshot().status === "unavailable") card.markUnavailable();
       return;
     }
-    console.error(`[dsh-image-pathify] settings ${operation} failed:`, error);
+    card.receive(value);
   };
 
   const updateSettings = (
     update: ImagePathifySettingsUpdate,
   ): Promise<ImagePathifyPublicSettings> => {
     const operation = settingsTail.then(async () => {
-      const handle = remote;
-      if (handle === undefined) {
-        const error = new Error("the imagePathify Remote is not mounted");
-        reportSettingsError("update", error);
-        throw error;
+      const snapshot = form.getSnapshot();
+      const ops = Object.entries(update)
+        .filter((entry) => entry[1] !== undefined)
+        .map(([key, value]) => ({ op: "set" as const, path: [key], value }));
+      if (ops.length > 0) {
+        const ok = await form.mutate(ops, snapshot.revision);
+        if (!ok) {
+          const error = new Error("settings update was refused");
+          console.error("[dsh-image-pathify] settings update failed:", error);
+          throw error;
+        }
       }
-      const generation = ++settingsGeneration;
-      try {
-        const result = await handle.updateSettings(update);
-        if (remote !== handle || generation !== settingsGeneration) {
-          throw new Error("settings update was superseded");
-        }
-        if (!result.ok) {
-          reportSettingsError("update", result.error);
-          throw new Error(`${result.error.code}: ${result.error.message}`);
-        }
-        return result.value;
-      } catch (error) {
-        if (remote === handle && generation === settingsGeneration) {
-          reportSettingsError("update", error);
-        }
-        throw error;
+      const next = readForm();
+      if (next === undefined) {
+        throw new Error("settings update was refused");
       }
+      return next;
     });
     settingsTail = operation.then(
       () => undefined,
@@ -119,11 +115,8 @@ export function apply(ctx: ClientContext): void {
     updateSettings,
     liveCredentials(ctx),
   );
-  // 0.1.2 mounts credentials as `remote.credentials`. Nested inject waits for
-  // it without blocking older hosts that never provide that service.
-  ctx.inject(["remote.credentials"], () => {
-    card.refreshCredential();
-  });
+  ctx.effect(() => form.subscribe(publishForm), "dsh-image-pathify: config");
+  publishForm();
 
   ctx.effect(() => {
     const onUpdated = ctx.remote.$on;
@@ -133,27 +126,6 @@ export function apply(ctx: ClientContext): void {
     }) as (...args: never[]) => void;
     return onUpdated.call(ctx.remote, "credentials/reference-updated", refresh);
   }, "dsh-image-pathify: credential invalidations");
-
-  const loadSettings = async (): Promise<void> => {
-    const handle = remote;
-    if (handle === undefined) return;
-    const generation = ++settingsGeneration;
-    try {
-      const result = await handle.getSettings();
-      if (remote !== handle || generation !== settingsGeneration) return;
-      if (!result.ok) {
-        reportSettingsError("read", result.error);
-        card.markUnavailable();
-        return;
-      }
-      card.receive(result.value);
-    } catch (error) {
-      if (remote === handle && generation === settingsGeneration) {
-        reportSettingsError("read", error);
-        card.markUnavailable();
-      }
-    }
-  };
 
   const loadUpdate = async (): Promise<void> => {
     const handle = remote;
@@ -178,30 +150,29 @@ export function apply(ctx: ClientContext): void {
         "dsh-image-pathify: the imagePathify Remote namespace did not mount",
       );
     }
-    await loadSettings();
     void loadUpdate();
     return () => {
-      settingsGeneration += 1;
       remote = undefined;
-      card.markUnavailable();
       void dispose();
     };
   }, "dsh-image-pathify: remote");
 
   ctx.on("connection/reset", () => {
-    void loadSettings();
+    publishForm();
     void loadUpdate();
   });
 
-  ctx.slots.inject("settings.plugin.item", () =>
-    ctx.slots.register(
-      {
-        name: "settings.plugin.item",
-        key: NS,
-        locale: NS,
-        inject: (): ImagePathifyCardInjected => card.inject(),
-      },
-      ImagePathifyCard,
+  ctx.configForms.whileServed([ENTRY_ID], () =>
+    ctx.slots.inject("plugins.bundle.config", () =>
+      ctx.slots.register(
+        {
+          name: "plugins.bundle.config",
+          key: ENTRY_ID,
+          locale: NS,
+          inject: (): ImagePathifyCardInjected => card.inject(),
+        },
+        ImagePathifyCard,
+      ),
     ),
   );
 }

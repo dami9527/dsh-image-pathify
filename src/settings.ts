@@ -1,16 +1,11 @@
 /**
- * The `image-pathify` settings namespace: the vision credential *reference*
- * plus the pathify tunables edited from the Web settings page. The key
- * literal is not a field here. Registered with `{ applies: 'live' }` so a
- * saved change takes effect without a restart.
+ * Public projection of the Loader entry. The key literal is not a field here.
+ * The plugins page writes the entry directly; this module only shapes patches
+ * the card still sends as a partial update.
  * @module dsh-image-pathify/settings
  */
 
-import type { Context } from "@deepseek-ai/cordis";
-import type {
-  SettingsNamespace,
-  SettingsScope,
-} from "@deepseek-ai/dsh-settings";
+import type { SettingsNamespace, SettingsScope } from "@deepseek-ai/dsh-settings";
 import type { Config } from "./config.ts";
 import type {
   ImagePathifyPublicSettings,
@@ -75,21 +70,4 @@ export async function applySettingsUpdate(
   }
   if (Object.keys(patch).length > 0) await scope.update(patch);
   return toPublicSettings(scope.get());
-}
-
-/**
- * Register the namespace against the live settings provider.
- * @param ctx - plugin context carrying `ctx.settings`.
- * @param schema - the plugin Config schema (composition base + user layer).
- * @param base - the Loader-resolved entry config.
- */
-export function registerImagePathifySettings(
-  ctx: Context,
-  schema: unknown,
-  base: Config,
-): SettingsScope<Config> {
-  return ctx.settings.register(IMAGE_PATHIFY_NAMESPACE, schema, {
-    base,
-    applies: "live",
-  });
 }

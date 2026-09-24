@@ -36,6 +36,7 @@ declare module "@deepseek-ai/cordis" {
     };
   }
   interface Events {
+    "loader/volatile-update"(entry: { id: string }): void;
     "tools/pre-execute"(
       exec: ToolExecution,
       next: () => Promise<PreToolDecision>,

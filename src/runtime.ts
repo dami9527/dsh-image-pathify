@@ -8,11 +8,7 @@
  */
 
 import { Service, type Context } from "@deepseek-ai/cordis";
-import type {
-  ImagePathifyPublicSettings,
-  ImagePathifySettingsUpdate,
-  ImagePathifyUpdateStatus,
-} from "./contract.ts";
+import type { ImagePathifyUpdateStatus } from "./contract.ts";
 
 /** Same shape `bindTypertRemote` freezes; kept local so this module does not import `dsh-typert-protocol`. */
 export interface ImagePathifyTypertBinding {
@@ -21,17 +17,13 @@ export interface ImagePathifyTypertBinding {
   readonly namespace: string;
 }
 
-/** Settings Remote: read the public section and persist one UI patch. */
+/** Update-probe Remote. Settings themselves are the Loader entry config. */
 export class ImagePathifyRuntime extends Service {
   /** Visible binding consumed by the Host Gateway's source-mode discovery. */
   readonly typertRemote: ImagePathifyTypertBinding;
 
   constructor(
     ctx: Context,
-    private readonly readSettings: () => ImagePathifyPublicSettings,
-    private readonly writeSettings: (
-      update: ImagePathifySettingsUpdate,
-    ) => Promise<ImagePathifyPublicSettings>,
     private readonly readUpdate: () => Promise<ImagePathifyUpdateStatus>,
   ) {
     super(ctx, "imagePathify");
@@ -40,18 +32,6 @@ export class ImagePathifyRuntime extends Service {
       serviceKey: this.name,
       namespace: this.name,
     });
-  }
-
-  /** Read the resolved durable settings through the plugin-owned wire. */
-  getSettings(): ImagePathifyPublicSettings {
-    return this.readSettings();
-  }
-
-  /** Persist one settings patch and return the public section. */
-  updateSettings(
-    update: ImagePathifySettingsUpdate,
-  ): Promise<ImagePathifyPublicSettings> {
-    return this.writeSettings(update);
   }
 
   /** Return the cached npm latest-version probe (started at plugin load). */

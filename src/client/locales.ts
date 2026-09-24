@@ -6,10 +6,6 @@ import type {} from "@deepseek-ai/dsh-client-ui-slots";
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
-  title: "识图",
-  description: "给不能看图的模型配置视觉接口。",
-  expand: "展开设置",
-  collapse: "收起设置",
   unsaved: "未保存",
   save: "保存",
   saving: "保存中…",
@@ -53,10 +49,6 @@ export type ImagePathifyKey = keyof typeof zh;
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
-  title: "Vision",
-  description: "Vision API for models that cannot see images.",
-  expand: "Show settings",
-  collapse: "Hide settings",
   unsaved: "Unsaved",
   save: "Save",
   saving: "Saving…",

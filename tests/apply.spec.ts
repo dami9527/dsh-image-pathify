@@ -238,7 +238,7 @@ describe("analyze_image live settings", () => {
       },
     });
 
-    await ctx.plugin(plugin, {});
+    await ctx.plugin(plugin, { maxTokens: 4096 });
     expect(tool).toBeDefined();
 
     const fetchImpl = vi.fn(async () => {

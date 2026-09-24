@@ -1,7 +1,6 @@
 /**
- * Host Typert manifest for the `imagePathify` Remote. Registered through
- * `ctx.typert.register` so the Gateway resolves get/update without consulting
- * the `@Remote` marker table (source-launch can load two protocol copies).
+ * Host Typert manifest for the `imagePathify` update probe. Settings are the
+ * Loader entry, edited through the plugins page, not this Remote.
  * @module dsh-image-pathify/typert
  */
 
@@ -18,21 +17,9 @@ export const TYPERT_MANIFEST: TypertContribution = {
       {
         key: "imagePathify",
         exportName: "ImagePathifyRuntime",
-        description:
-          "Plugin-owned settings for the vision API reference and image pathify tunables.",
+        description: "npm latest-version probe for this plugin.",
         tags: [],
         members: [
-          {
-            kind: "method",
-            name: "getSettings",
-            signature: "getSettings(): ImagePathifyPublicSettings",
-          },
-          {
-            kind: "method",
-            name: "updateSettings",
-            signature:
-              "updateSettings(update: ImagePathifySettingsUpdate): Promise<ImagePathifyPublicSettings>",
-          },
           {
             kind: "method",
             name: "getUpdate",

@@ -8,11 +8,7 @@ import type {
   TypertRemoteContribution,
 } from "@deepseek-ai/dsh-typert-protocol";
 import { IMAGE_PATHIFY_INVOCATIONS } from "../contract.ts";
-import type {
-  ImagePathifyPublicSettings,
-  ImagePathifySettingsUpdate,
-  ImagePathifyUpdateStatus,
-} from "../contract.ts";
+import type { ImagePathifyUpdateStatus } from "../contract.ts";
 
 /** The imagePathify Remote namespace's client contribution. */
 export const IMAGE_PATHIFY_REMOTE: TypertRemoteContribution = {
@@ -23,19 +19,9 @@ export const IMAGE_PATHIFY_REMOTE: TypertRemoteContribution = {
 declare module "@deepseek-ai/dsh-typert-protocol" {
   /** The `imagePathify` namespace face mounted under `ctx.remote.imagePathify`. */
   interface TypertRemoteNamespace$696d61676550617468696679 {
-    getSettings: () => Promise<RemoteResult<ImagePathifyPublicSettings>>;
-    updateSettings: (
-      update: ImagePathifySettingsUpdate,
-    ) => Promise<RemoteResult<ImagePathifyPublicSettings>>;
     getUpdate: () => Promise<RemoteResult<ImagePathifyUpdateStatus>>;
   }
   interface TypertRemoteMap {
-    "imagePathify/getSettings": () => Promise<
-      RemoteResult<ImagePathifyPublicSettings>
-    >;
-    "imagePathify/updateSettings": (
-      update: ImagePathifySettingsUpdate,
-    ) => Promise<RemoteResult<ImagePathifyPublicSettings>>;
     "imagePathify/getUpdate": () => Promise<
       RemoteResult<ImagePathifyUpdateStatus>
     >;

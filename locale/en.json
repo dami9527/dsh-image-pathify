@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Image Pathify",
+    "description": "Lets text-only models handle pasted chat images, with a native vision experience, batch image viewing, and a built-in OpenAI-compatible analyze_image tool; vision-capable models are unaffected."
+  }
+}

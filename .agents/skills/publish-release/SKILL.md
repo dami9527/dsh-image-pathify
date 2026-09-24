@@ -114,7 +114,7 @@ DeepSeek Harness 0.1.2-alpha.1 把浏览器凭据从 `connection.api` 挪到 `re
 
 - 识图卡优先走 `remote.credentials`，没有时回退 `connection.api.credentials`；0.1.2 宿主不再挂 `api` 也不会报错
 - 凭据服务晚挂载时自动刷新「已配置密钥」状态
-- 附件路径优先 `imageHostPath()`，没有或抛错再回退 `imagePath()` / 本地 `root` 布局
+- 附件路径只用 `imageHostPath()`，没有或抛错时再把字节落到 `vision-paths`
 
 ---
 

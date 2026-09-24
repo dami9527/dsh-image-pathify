@@ -196,43 +196,6 @@ export const settingsUpdateSchema: TypertSchema<ImagePathifySettingsUpdate> = {
 /** Host invocation descriptors shared with the client `$mount` contribution. */
 export const IMAGE_PATHIFY_INVOCATIONS: readonly InvocationDescriptor[] = [
   {
-    id: "dsh-image-pathify#imagePathify/getSettings",
-    service: "imagePathify",
-    namespace: "imagePathify",
-    method: "getSettings",
-    invocation: { kind: "direct" },
-    parameters: [],
-    result: {
-      mode: "strict",
-      typeSymbol: "dsh-image-pathify#ImagePathifyPublicSettings",
-      schema: publicSettingsSchema,
-    },
-  },
-  {
-    id: "dsh-image-pathify#imagePathify/updateSettings",
-    service: "imagePathify",
-    namespace: "imagePathify",
-    method: "updateSettings",
-    invocation: { kind: "direct" },
-    parameters: [
-      {
-        name: "update",
-        wire: "update",
-        source: "json",
-        codec: {
-          mode: "strict",
-          typeSymbol: "dsh-image-pathify#ImagePathifySettingsUpdate",
-          schema: settingsUpdateSchema,
-        },
-      },
-    ],
-    result: {
-      mode: "strict",
-      typeSymbol: "dsh-image-pathify#ImagePathifyPublicSettings",
-      schema: publicSettingsSchema,
-    },
-  },
-  {
     id: "dsh-image-pathify#imagePathify/getUpdate",
     service: "imagePathify",
     namespace: "imagePathify",
@@ -242,7 +205,7 @@ export const IMAGE_PATHIFY_INVOCATIONS: readonly InvocationDescriptor[] = [
     result: {
       mode: "strict",
       typeSymbol: "dsh-image-pathify#ImagePathifyUpdateStatus",
-      schema: updateStatusSchema,
+      create: () => updateStatusSchema,
     },
   },
 ];

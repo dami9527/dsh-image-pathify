@@ -8,95 +8,14 @@ export const STYLE_ID = "dsh-image-pathify-style";
 
 /** The card's injected stylesheet text. */
 export const cssText = `
-.dsh_imagePathify_card {
-  list-style: none;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
-  background: var(--dsw-alias-bg-layer-3);
-  transition: border-color .16s, background .16s;
-}
-.dsh_imagePathify_card:hover {
-  border-color: var(--dsw-alias-label-dimmed);
-}
-.dsh_imagePathify_cardOpen {
-  background: var(--dsw-alias-bg-layer-2);
-  border-color: var(--dsw-alias-label-dimmed);
-}
-.dsh_imagePathify_header {
-  width: 100%;
-  appearance: none;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
-}
-.dsh_imagePathify_header:focus-visible {
-  outline: 2px solid var(--dsw-alias-brand-primary);
-  outline-offset: -2px;
-}
-.dsh_imagePathify_headText {
-  flex: 1;
-  min-width: 0;
+.dsh_imagePathify_form {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-.dsh_imagePathify_nameRow {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-.dsh_imagePathify_name {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--dsw-alias-label-primary);
-}
-.dsh_imagePathify_version {
-  flex: none;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.4;
-  color: var(--dsw-alias-label-tertiary);
-  white-space: nowrap;
-}
-.dsh_imagePathify_description {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--dsw-alias-label-tertiary);
-}
-.dsh_imagePathify_pending {
-  flex: none;
-  border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 11px;
-  line-height: 17px;
-  font-weight: 500;
-  white-space: nowrap;
-  background: var(--dsw-alias-bg-module-platform);
-  color: var(--dsw-alias-label-secondary);
-}
-.dsh_imagePathify_chevron {
-  flex: none;
-  display: block;
-  color: var(--dsw-alias-label-tertiary);
-  transition: transform .16s;
-}
-.dsh_imagePathify_chevronOpen {
-  transform: rotate(180deg);
+  background: none;
 }
 .dsh_imagePathify_body {
-  border-top: 1px solid var(--dsw-alias-border-l2);
-  margin: 0 16px;
-  padding-bottom: 8px;
+  display: flex;
+  flex-direction: column;
 }
 .dsh_imagePathify_field {
   display: flex;
@@ -105,7 +24,7 @@ export const cssText = `
   padding: 12px 0;
 }
 .dsh_imagePathify_field + .dsh_imagePathify_field {
-  border-top: 1px solid var(--dsw-alias-border-l2);
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 .dsh_imagePathify_fieldHead {
   display: flex;
@@ -326,10 +245,8 @@ export const cssText = `
 .dsh_imagePathify_footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 8px;
-  padding: 12px 0 4px;
-  border-top: 1px solid var(--dsw-alias-border-l2);
+  padding-top: 16px;
 }
 .dsh_imagePathify_failed {
   flex: 1;
@@ -373,19 +290,14 @@ export const cssText = `
   outline: 2px solid var(--dsw-alias-brand-primary);
   outline-offset: 1px;
 }
-.dsh_imagePathify_headHasUpdate .dsh_imagePathify_header {
-  padding-bottom: 8px;
-}
 .dsh_imagePathify_update {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 0 16px 12px;
+  padding: 0 0 12px;
 }
 .dsh_imagePathify_updateText {
-  flex: 1;
-  min-width: 0;
   font-size: 13px;
   font-weight: 500;
   line-height: 1.5;

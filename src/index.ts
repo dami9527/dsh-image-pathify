@@ -11,7 +11,7 @@
  *    rewrites image blocks to `Saved attachments: <absolute path>` text
  *    blocks when the target model lacks the image input modality.
  *    `analyze_image` then reads those files through the configured vision
- *    API. Nested `tool-result` images are rewritten the same way. Immediately
+ *    API. Immediately
  *    before dispatch, `llm/stream` also drops `read_image` for text-only
  *    models and `analyze_image` for vision models, using the provider/model
  *    on that request (not the possibly-stale agent options). On a vision
@@ -26,16 +26,15 @@
  * other caller of `resolveModelInfo` that refuses non-image routes) has no
  * plugin seam, this plugin also installs a small, configurable shim on
  * `ctx.llm.resolveModelInfo` so those gates admit images for the configured
- * text-only models (see {@link admission}). On dsh 0.1.5, `session.selectModel`
- * already allows switching to a text-only model while durable images remain;
- * the shim is still required so *new* pasted images are admitted.
+ * text-only models (see {@link admission}).
  *
- * `llm` is required. `tools`, `systemPrompt`, `settings`, and `typert` are
- * joined with nested `ctx.inject` so pathify still loads in a composition
- * that has only the LLM seam (and so unit tests that stub only `llm` keep
- * working). A web or desktop profile provides all of them. Desktop
- * `desktopProfiles` is probed with `ctx.get`, never required `inject`;
- * ordinary DSH falls back to Loader `ctx.baseUrl`.
+ * `llm` is required. `tools`, `systemPrompt`, and `typert` are joined with
+ * nested `ctx.inject` so pathify still loads in a composition that has only
+ * the LLM seam (and so unit tests that stub only `llm` keep working). A web
+ * or desktop profile provides all of them. Config is the Loader entry: every
+ * field is volatile, so a plugins-page save is visible on the next call.
+ * Desktop `desktopProfiles` is probed with `ctx.get`, never required
+ * `inject`; ordinary DSH falls back to Loader `ctx.baseUrl`.
  * @module dsh-image-pathify
  */
 
@@ -46,12 +45,12 @@ import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
 // the program so `ctx.on('llm/stream', …)` and `ctx.llm` type-check.
 import type {} from "@deepseek-ai/dsh-llm";
 import type {} from "@deepseek-ai/dsh-tools";
-import type {} from "@deepseek-ai/dsh-settings";
 import type {} from "@deepseek-ai/dsh-typert-registry";
 import type {} from "@deepseek-ai/dsh-system-prompt";
 import { installAdmissionShim } from "./admission.ts";
-import { Config, type Config as ConfigShape } from "./config.ts";
+import type { Config as ConfigShape } from "./config.ts";
 import { deepFreeze } from "./freeze.ts";
+import { readConfig } from "./live.ts";
 import { messagesHaveImage, pathifyImages } from "./pathify.ts";
 import {
   installVisionPolicy,
@@ -59,16 +58,12 @@ import {
   visionToolsPreExecute,
 } from "./policy.ts";
 import { ImagePathifyRuntime } from "./runtime.ts";
-import {
-  applySettingsUpdate,
-  registerImagePathifySettings,
-  toPublicSettings,
-} from "./settings.ts";
 import { registerAnalyzeImageTool } from "./tool.ts";
 import { TYPERT_MANIFEST } from "./typert.ts";
 import { checkPluginUpdate, resolvePluginProfile } from "./update.ts";
 
 export { Config } from "./config.ts";
+export { readConfig } from "./live.ts";
 export {
   DEFAULT_API_KEY_ENV,
   DEFAULT_MAX_TOKENS,
@@ -202,9 +197,7 @@ function pathifyStream(
  * installed) restores the original `resolveModelInfo` on disposal.
  */
 export function apply(ctx: Context, config?: object): void {
-  const resolved: ConfigShape = Config((config ?? {}) as never) as ConfigShape;
-  let fromSettings: (() => ConfigShape) | undefined;
-  const current = (): ConfigShape => fromSettings?.() ?? resolved;
+  const current = (): ConfigShape => readConfig(config);
 
   ctx.on(
     "llm/stream",
@@ -229,35 +222,21 @@ export function apply(ctx: Context, config?: object): void {
     };
   });
 
-  ctx.inject(["settings"], (sctx: Context) => {
-    const scope = registerImagePathifySettings(sctx, Config, resolved);
-    fromSettings = () => scope.get();
+  ctx.on("loader/volatile-update", () => {
     syncAdmission();
-    scope.watch(() => {
-      syncAdmission();
-    });
-    sctx.effect(() => () => {
-      fromSettings = undefined;
-      syncAdmission();
-    });
+  });
 
-    sctx.inject(["typert"], (tctx: Context) => {
-      const updateProbe = checkPluginUpdate({
-        profile: resolvePluginProfile(ctx.get("desktopProfiles"), ctx.baseUrl),
-      });
-      new ImagePathifyRuntime(
-        tctx,
-        () => toPublicSettings(scope.get()),
-        (update) => applySettingsUpdate(scope, update),
-        () => updateProbe,
-      );
-      tctx.effect(() => {
-        const dispose = tctx.typert.register(TYPERT_MANIFEST);
-        return () => {
-          void dispose();
-        };
-      }, "dsh-image-pathify: typert manifest");
+  ctx.inject(["typert"], (tctx: Context) => {
+    const updateProbe = checkPluginUpdate({
+      profile: resolvePluginProfile(ctx.get("desktopProfiles"), ctx.baseUrl),
     });
+    new ImagePathifyRuntime(tctx, () => updateProbe);
+    tctx.effect(() => {
+      const dispose = tctx.typert.register(TYPERT_MANIFEST);
+      return () => {
+        void dispose();
+      };
+    }, "dsh-image-pathify: typert manifest");
   });
 
   ctx.inject(["tools"], (tctx: Context) => {

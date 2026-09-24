@@ -5,14 +5,13 @@
  */
 import { Context } from "@deepseek-ai/cordis";
 import { describe, expect, it, vi } from "vitest";
-import { apply, inject } from "../src/client/index.ts";
+import { ENTRY_ID, apply, inject } from "../src/client/index.ts";
 import { IMAGE_PATHIFY_REMOTE } from "../src/client/remote.ts";
 import { NS, en, zh } from "../src/client/locales.ts";
 import { STYLE_ID } from "../src/client/styles.ts";
 import { defaultPublicSettings } from "../src/contract.ts";
 import type {
   ImagePathifyPublicSettings,
-  ImagePathifySettingsUpdate,
   ImagePathifyUpdateStatus,
 } from "../src/contract.ts";
 import type { ImagePathifyCardState } from "../src/client/card-form.ts";
@@ -23,19 +22,10 @@ type RemoteResult<T> =
   | { ok: false; error: { code: string; message: string; details: object } };
 
 interface BootOptions {
-  getSettings?: () => Promise<RemoteResult<ImagePathifyPublicSettings>>;
-  updateSettings?: (
-    update: ImagePathifySettingsUpdate,
-  ) => Promise<RemoteResult<ImagePathifyPublicSettings>>;
   getUpdate?: () => Promise<RemoteResult<ImagePathifyUpdateStatus>>;
   withoutNamespace?: boolean;
-  /**
-   * Where the credentials methods live.
-   * `legacy` = `connection.api.credentials` (pre-0.1.2).
-   * `remote` = `remote.credentials` (0.1.2-alpha.1, no `connection.api`).
-   * `none` = connected host with no credentials wire (must not throw).
-   */
-  credentialsWire?: "legacy" | "remote" | "none";
+  /** `none` = connected host with no credentials wire (must not throw). */
+  credentialsWire?: "remote" | "none";
 }
 
 async function boot(options: BootOptions = {}) {
@@ -49,25 +39,25 @@ async function boot(options: BootOptions = {}) {
   const slotsInject = vi.fn((_name: string, factory: () => void) => {
     factory();
   });
-  let settings = defaultPublicSettings();
-  const getSettings = vi.fn(
-    options.getSettings ??
-      (async () => ({ ok: true as const, value: settings })),
-  );
-  const updateSettings = vi.fn(
-    options.updateSettings ??
-      (async (update: ImagePathifySettingsUpdate) => {
-        settings = {
-          ...settings,
-          ...(update.visionModel !== undefined
-            ? { visionModel: update.visionModel }
-            : {}),
-          ...(update.relaxAdmission !== undefined
-            ? { relaxAdmission: update.relaxAdmission }
-            : {}),
-        };
-        return { ok: true as const, value: settings };
-      }),
+  let settings: ImagePathifyPublicSettings = defaultPublicSettings();
+  let revision = 1;
+  const listeners = new Set<() => void>();
+  const mutate = vi.fn(
+    async (
+      ops: readonly { op: "set"; path: readonly string[]; value: unknown }[],
+      seen: number,
+    ) => {
+      if (seen !== revision) return false;
+      const next = { ...settings } as Record<string, unknown>;
+      for (const op of ops) {
+        const key = op.path[0];
+        if (key !== undefined) next[key] = op.value;
+      }
+      settings = next as unknown as ImagePathifyPublicSettings;
+      revision += 1;
+      for (const listener of listeners) listener();
+      return true;
+    },
   );
   const getUpdate = vi.fn(
     options.getUpdate ??
@@ -99,24 +89,11 @@ async function boot(options: BootOptions = {}) {
         },
       ]),
     );
-    if (options.credentialsWire === "remote") {
-      return { ok: true as const, value: views };
-    }
-    return {
-      result: {
-        ok: true as const,
-        value: { credentials: views },
-      },
-    };
+    return { ok: true as const, value: views };
   });
-  const setCredential = vi.fn(async (first: unknown, second?: unknown) => {
-    if (typeof first === "string" && typeof second === "string") {
-      credentials.set(first, second);
-      return { ok: true as const, value: undefined };
-    }
-    const payload = first as { ref: string; value: string };
-    credentials.set(payload.ref, payload.value);
-    return { result: { ok: true as const, value: {} } };
+  const setCredential = vi.fn(async (ref: string, value: string) => {
+    credentials.set(ref, value);
+    return { ok: true as const, value: undefined };
   });
   const onRemote = vi.fn(
     (event: string, listener: (...args: never[]) => void) => {
@@ -135,28 +112,34 @@ async function boot(options: BootOptions = {}) {
   );
   ctx.provide("remote", { $mount: mount, $on: onRemote });
   if (options.withoutNamespace !== true) {
-    ctx.provide("remote.imagePathify", {
-      getSettings,
-      updateSettings,
-      getUpdate,
-    });
+    ctx.provide("remote.imagePathify", { getUpdate });
   }
+  ctx.provide("configForms", {
+    get: () => ({
+      getSnapshot: () => ({
+        status: "ready" as const,
+        value: settings as unknown as Record<string, unknown>,
+        revision,
+        writable: true,
+      }),
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      mutate,
+    }),
+    whileServed: (_namespaces: readonly string[], register: () => unknown) => {
+      register();
+      return () => {};
+    },
+  });
   ctx.provide("slots", { inject: slotsInject, register: slotsRegister });
   ctx.provide("locale", { register: localeRegister, bind });
-  const wire = options.credentialsWire ?? "legacy";
-  if (wire === "remote") {
-    ctx.provide("connection", {});
+  ctx.provide("connection", {});
+  if ((options.credentialsWire ?? "remote") === "remote") {
     ctx.provide("remote.credentials", {
       describe: describeCredentials,
       set: setCredential,
-    });
-  } else if (wire === "none") {
-    ctx.provide("connection", {});
-  } else {
-    ctx.provide("connection", {
-      api: {
-        credentials: { describe: describeCredentials, set: setCredential },
-      },
     });
   }
   apply(ctx as never);
@@ -169,8 +152,7 @@ async function boot(options: BootOptions = {}) {
     bind,
     slotsRegister,
     slotsInject,
-    getSettings,
-    updateSettings,
+    mutate,
     getUpdate,
     describeCredentials,
     setCredential,
@@ -200,15 +182,22 @@ function pluginCard(
   booted: Awaited<ReturnType<typeof boot>>,
 ): RegisteredPluginCard {
   const card = booted.slotsRegister.mock.calls.find(
-    (call) => call[0]?.name === "settings.plugin.item",
+    (call) => call[0]?.name === "plugins.bundle.config",
   )?.[0] as RegisteredPluginCard | undefined;
   expect(card).toBeDefined();
   return card as RegisteredPluginCard;
 }
 
 describe("dsh-image-pathify client apply", () => {
-  it("declares slots, locale, connection, and remote", () => {
-    expect(inject).toEqual(["slots", "locale", "connection", "remote"]);
+  it("declares the plugins-page services", () => {
+    expect(inject).toEqual([
+      "slots",
+      "locale",
+      "connection",
+      "remote",
+      "remote.credentials",
+      "configForms",
+    ]);
   });
 
   it("registers complete zh and en dictionaries", () => {
@@ -222,13 +211,12 @@ describe("dsh-image-pathify client apply", () => {
     expect(booted.localeRegister).toHaveBeenCalledWith(NS, { zh, en });
     expect(document.getElementById(STYLE_ID)).not.toBeNull();
     expect(booted.slotsInject).toHaveBeenCalledWith(
-      "settings.plugin.item",
+      "plugins.bundle.config",
       expect.any(Function),
     );
     const card = pluginCard(booted);
-    expect(card.key).toBe(NS);
+    expect(card.key).toBe(ENTRY_ID);
     expect(card.locale).toBe(NS);
-    expect(booted.getSettings).toHaveBeenCalled();
     expect(card.inject().hooks.imagePathifyCard.getSnapshot().available).toBe(
       true,
     );
@@ -243,18 +231,17 @@ describe("dsh-image-pathify client apply", () => {
     );
   });
 
-  it("writes staged settings through the Remote on save", async () => {
+  it("writes staged settings through the entry form on save", async () => {
     const booted = await boot();
     const face = pluginCard(booted).inject();
     face.edit("visionModel", "qwen-vl-max");
     expect(face.hooks.imagePathifyCard.getSnapshot().dirty).toBe(true);
     face.save();
-    await expect
-      .poll(() => booted.updateSettings.mock.calls.length)
-      .toBeGreaterThan(0);
-    expect(booted.updateSettings).toHaveBeenCalledWith({
-      visionModel: "qwen-vl-max",
-    });
+    await expect.poll(() => booted.mutate.mock.calls.length).toBeGreaterThan(0);
+    expect(booted.mutate).toHaveBeenCalledWith(
+      [{ op: "set", path: ["visionModel"], value: "qwen-vl-max" }],
+      1,
+    );
     expect(face.hooks.imagePathifyCard.getSnapshot().dirty).toBe(false);
     expect(face.hooks.imagePathifyCard.getSnapshot().visionModel.text).toBe(
       "qwen-vl-max",
@@ -269,38 +256,22 @@ describe("dsh-image-pathify client apply", () => {
     await expect
       .poll(() => booted.setCredential.mock.calls.length)
       .toBeGreaterThan(0);
-    expect(booted.setCredential).toHaveBeenCalledWith({
-      ref: DEFAULT_API_KEY_ENV,
-      value: "sk-test",
-    });
-    expect(booted.updateSettings).not.toHaveBeenCalled();
-    expect(face.hooks.imagePathifyCard.getSnapshot().apiKeySet).toBe(true);
-    expect(face.hooks.imagePathifyCard.getSnapshot().apiKeyText).toBe("");
-  });
-
-  it("applies on a 0.1.2 connection that has no api bag", async () => {
-    const booted = await boot({ credentialsWire: "none" });
-    expect(pluginCard(booted).key).toBe(NS);
-    expect(
-      pluginCard(booted).inject().hooks.imagePathifyCard.getSnapshot()
-        .available,
-    ).toBe(true);
-  });
-
-  it("writes the API key through remote.credentials on 0.1.2 hosts", async () => {
-    const booted = await boot({ credentialsWire: "remote" });
-    const face = pluginCard(booted).inject();
-    face.edit("apiKey", "sk-test");
-    face.save();
-    await expect
-      .poll(() => booted.setCredential.mock.calls.length)
-      .toBeGreaterThan(0);
     expect(booted.setCredential).toHaveBeenCalledWith(
       DEFAULT_API_KEY_ENV,
       "sk-test",
     );
-    expect(booted.updateSettings).not.toHaveBeenCalled();
+    expect(booted.mutate).not.toHaveBeenCalled();
     expect(face.hooks.imagePathifyCard.getSnapshot().apiKeySet).toBe(true);
+    expect(face.hooks.imagePathifyCard.getSnapshot().apiKeyText).toBe("");
+  });
+
+  it("still mounts the card when credentials are absent", async () => {
+    const booted = await boot({ credentialsWire: "none" });
+    expect(pluginCard(booted).key).toBe(ENTRY_ID);
+    expect(
+      pluginCard(booted).inject().hooks.imagePathifyCard.getSnapshot()
+        .available,
+    ).toBe(true);
   });
 
   it("surfaces an available update on the card header snapshot", async () => {

@@ -1,0 +1,23 @@
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ip-photo" x1="7" y1="5" x2="22" y2="26" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7CB7FF"/>
+      <stop offset="1" stop-color="#145AF3"/>
+    </linearGradient>
+    <linearGradient id="ip-lens" x1="19" y1="9" x2="32" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67C7FE"/>
+      <stop offset="1" stop-color="#45D9E7"/>
+    </linearGradient>
+    <clipPath id="ip-clip">
+      <rect x="4" y="6" width="19" height="19" rx="3"/>
+    </clipPath>
+  </defs>
+  <rect x="4" y="6" width="19" height="19" rx="3" fill="url(#ip-photo)"/>
+  <g clip-path="url(#ip-clip)">
+    <circle cx="9.2" cy="11.4" r="2.15" fill="#F2AF63"/>
+    <path d="M4 23.4 9.6 16.2 13.4 20.2 17.8 13.4 23 23.4H4Z" fill="#45D9E7"/>
+  </g>
+  <circle cx="24.2" cy="15.2" r="7" fill="url(#ip-lens)"/>
+  <circle cx="24.2" cy="15.2" r="4.15" fill="#FFFFFF"/>
+  <path d="M29 20.1 32.3 23.5" stroke="#145AF3" stroke-width="2.8" stroke-linecap="round"/>
+</svg>
