@@ -135,7 +135,6 @@ async function boot(options: BootOptions = {}) {
   });
   ctx.provide("slots", { inject: slotsInject, register: slotsRegister });
   ctx.provide("locale", { register: localeRegister, bind });
-  ctx.provide("connection", {});
   if ((options.credentialsWire ?? "remote") === "remote") {
     ctx.provide("remote.credentials", {
       describe: describeCredentials,
@@ -193,7 +192,6 @@ describe("dsh-image-pathify client apply", () => {
     expect(inject).toEqual([
       "slots",
       "locale",
-      "connection",
       "remote",
       "remote.credentials",
       "configForms",

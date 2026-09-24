@@ -9,7 +9,7 @@ import type {
   StoredImageAttachment,
 } from "@deepseek-ai/dsh-attachment";
 import LlmRuntime, {
-  CallId,
+  ToolCallId,
   createMessage,
   createToolResultMessage,
   GenerateOptions,
@@ -17,7 +17,7 @@ import LlmRuntime, {
   LlmResolvedModelInfo,
   StreamChunk,
 } from "@deepseek-ai/dsh-llm";
-import { deepFreeze } from "../src/freeze.ts";
+import { deepFreeze } from "@deepseek-ai/dsh-util-values";
 import * as plugin from "../src/index.ts";
 
 const contexts: Context[] = [];
@@ -432,14 +432,13 @@ describe("dsh-image-pathify", () => {
     ]);
   });
 
-  it("leaves an image nested in a legacy tool-result block untouched", async () => {
+  it("rewrites an image on a tool message", async () => {
     const { ctx, adapter } = await setup({
       attachments: { root: "/attachments" },
       modalities: { model: ["text"] },
     });
-    const callId = CallId("read-image-1");
     const message = createToolResultMessage({
-      callId,
+      callId: ToolCallId("read-image-1"),
       content: [imageBlock()],
       isError: false,
     });
@@ -452,57 +451,11 @@ describe("dsh-image-pathify", () => {
       }),
     );
 
-    const nested = adapter.lastOptions?.messages[0]?.content[0] as {
-      type: string;
-      content: { type: string; text?: string }[];
-    };
-    expect(nested.type).toBe("tool-result");
-    expect(nested.content[0]?.text).toContain("image omitted");
-    expect(nested.content[0]?.text).not.toContain("Saved attachments:");
-  });
-
-  it("rewrites a top-level image and leaves a nested tool-result image", async () => {
-    const { ctx, adapter } = await setup({
-      attachments: { root: "/attachments" },
-      modalities: { model: ["text"] },
-    });
-    const nested = {
-      type: "tool-result" as const,
-      toolCallId: CallId("read-image-1"),
-      content: [imageBlock(`sha256:${"b".repeat(64)}`)],
-    };
-    const message = createMessage({
-      role: "user",
-      content: [
-        { type: "text", text: "compare" },
-        imageBlock(`sha256:${"a".repeat(64)}`),
-        nested,
-      ],
-      source: { kind: "user" },
-    });
-
-    await drain(
-      ctx.llm.stream({
-        provider: "route",
-        model: "model",
-        messages: [message],
-      }),
-    );
-
+    expect(adapter.lastOptions?.messages[0]?.role).toBe("tool");
     expect(adapter.lastOptions?.messages[0]?.content).toEqual([
-      { type: "text", text: "compare" },
       {
         type: "text",
         text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
-      },
-      {
-        ...nested,
-        content: [
-          {
-            type: "text",
-            text: "[image omitted because this model accepts text only; attachment sha256:bbbbbbbb]",
-          },
-        ],
       },
     ]);
   });
@@ -513,7 +466,7 @@ describe("dsh-image-pathify", () => {
       modalities: { model: ["text"] },
     });
     const plain = createToolResultMessage({
-      callId: CallId("other"),
+      callId: ToolCallId("other"),
       content: [{ type: "text", text: "ok" }],
       isError: false,
     });
@@ -546,7 +499,7 @@ describe("dsh-image-pathify", () => {
       modalities: { model: ["text", "image"] },
     });
     const message = createToolResultMessage({
-      callId: CallId("read-image-1"),
+      callId: ToolCallId("read-image-1"),
       content: [imageBlock()],
       isError: false,
     });
@@ -744,7 +697,7 @@ describe("dsh-image-pathify", () => {
     const systemMessage = createMessage({
       role: "system",
       content: [{ type: "text", text: `persona\n\n${prompt}\n\nfooter` }],
-      source: { kind: "plugin", plugin: "system-prompt" },
+      source: { kind: "system-prompt" },
     });
     const user = pathMessage();
     await drain(

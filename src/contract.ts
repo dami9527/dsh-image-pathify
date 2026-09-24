@@ -149,50 +149,6 @@ export const updateStatusSchema: TypertSchema<ImagePathifyUpdateStatus> = {
   },
 };
 
-/** Strict codec for one UI patch. Every field is optional. */
-export const settingsUpdateSchema: TypertSchema<ImagePathifySettingsUpdate> = {
-  parse(value: unknown): ImagePathifySettingsUpdate {
-    if (!isRecord(value)) fail("update must be an object");
-    const update: ImagePathifySettingsUpdate = {
-      ...(value.apiKeyEnv === undefined
-        ? {}
-        : { apiKeyEnv: readString(value.apiKeyEnv, "apiKeyEnv") }),
-      ...(value.visionModel === undefined
-        ? {}
-        : { visionModel: readString(value.visionModel, "visionModel") }),
-      ...(value.visionBaseUrl === undefined
-        ? {}
-        : { visionBaseUrl: readString(value.visionBaseUrl, "visionBaseUrl") }),
-      ...(value.disableThinking === undefined
-        ? {}
-        : {
-            disableThinking: readBoolean(
-              value.disableThinking,
-              "disableThinking",
-            ),
-          }),
-      ...(value.maxTokens === undefined
-        ? {}
-        : {
-            maxTokens: readMaxTokens(value.maxTokens, "maxTokens"),
-          }),
-      ...(value.models === undefined
-        ? {}
-        : {
-            models: Array.isArray(value.models)
-              ? value.models.map(readModel)
-              : fail("models must be an array"),
-          }),
-      ...(value.relaxAdmission === undefined
-        ? {}
-        : {
-            relaxAdmission: readBoolean(value.relaxAdmission, "relaxAdmission"),
-          }),
-    };
-    return update;
-  },
-};
-
 /** Host invocation descriptors shared with the client `$mount` contribution. */
 export const IMAGE_PATHIFY_INVOCATIONS: readonly InvocationDescriptor[] = [
   {

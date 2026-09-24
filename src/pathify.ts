@@ -23,10 +23,11 @@ import type {
   ContentBlock,
   GenerateOptions,
   Message,
+  RequestMessage,
 } from "@deepseek-ai/dsh-llm";
 import { contentHasImage, freezeMessage } from "@deepseek-ai/dsh-llm";
 import { DEFAULT_PREFIX } from "./defaults.ts";
-import { deepFreeze } from "./freeze.ts";
+import { deepFreeze } from "@deepseek-ai/dsh-util-values";
 
 /** Media type to file extension for materialized fallback copies. */
 const MEDIA_EXTENSION: Readonly<Record<string, string>> = {
@@ -42,7 +43,9 @@ const MEDIA_EXTENSION: Readonly<Record<string, string>> = {
 };
 
 /** True when any message in the request carries an image block. */
-export function messagesHaveImage(messages: readonly Message[]): boolean {
+export function messagesHaveImage(
+  messages: readonly RequestMessage[],
+): boolean {
   return messages.some((message) => contentHasImage(message.content));
 }
 
@@ -54,14 +57,9 @@ function publishedImagePath(
   attachments: AttachmentStore,
   ref: ImageAttachmentRef,
 ): string | undefined {
-  const method = (attachments as { imageHostPath?: unknown }).imageHostPath;
-  if (typeof method !== "function") return undefined;
   try {
-    const path = (method as (next: ImageAttachmentRef) => unknown).call(
-      attachments,
-      ref,
-    );
-    return typeof path === "string" && path.length > 0 ? path : undefined;
+    const path = attachments.imageHostPath(ref);
+    return path !== undefined && path.length > 0 ? path : undefined;
   } catch {
     return undefined;
   }
@@ -120,12 +118,29 @@ async function rewriteBlocks(
   const next = await Promise.all(
     blocks.map(async (block): Promise<ContentBlock> => {
       if (block.type !== "image") return block;
-      const path = await resolveImagePath(attachments, block.attachment, signal);
+      const path = await resolveImagePath(
+        attachments,
+        block.attachment,
+        signal,
+      );
       return { type: "text", text: `${DEFAULT_PREFIX}${path}` };
     }),
   );
   if (next.every((block, index) => block === blocks[index])) return blocks;
   return next;
+}
+
+function isDurableMessage(message: RequestMessage): message is Message {
+  return message.id !== undefined;
+}
+
+/** Identity-free user input stays a request value; durable messages keep their id. */
+function freezeRewritten(
+  message: RequestMessage,
+  content: readonly ContentBlock[],
+): RequestMessage {
+  if (!isDurableMessage(message)) return { role: "user", content };
+  return freezeMessage({ ...message, content });
 }
 
 /**
@@ -150,7 +165,7 @@ export async function pathifyImages(
       if (!contentHasImage(message.content)) return message;
       const content = await rewriteBlocks(message.content, attachments, signal);
       if (content === message.content) return message;
-      return freezeMessage({ ...message, content: [...content] });
+      return freezeRewritten(message, content);
     }),
   );
   if (messages.every((message, index) => message === options.messages[index])) {

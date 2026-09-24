@@ -7,6 +7,12 @@
 import type { TypertContribution } from "@deepseek-ai/dsh-typert-registry/types";
 import { IMAGE_PATHIFY_INVOCATIONS } from "./contract.ts";
 
+declare module "@deepseek-ai/dsh-typert-protocol" {
+  interface TypertRegistryContract {
+    register(contribution: TypertContribution): () => void | Promise<void>;
+  }
+}
+
 /** Host contribution claiming the `imagePathify` settings endpoints. */
 export const TYPERT_MANIFEST: TypertContribution = {
   package: "dsh-image-pathify",

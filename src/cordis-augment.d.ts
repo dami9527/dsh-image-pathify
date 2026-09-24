@@ -1,9 +1,4 @@
 import "@deepseek-ai/cordis";
-import type {
-  SettingsNamespace,
-  SettingsScope,
-} from "@deepseek-ai/dsh-settings";
-import type { TypertContribution } from "@deepseek-ai/dsh-typert-registry/types";
 import type { PreToolDecision, ToolExecution } from "@deepseek-ai/dsh-tools";
 
 declare module "@deepseek-ai/cordis" {
@@ -11,21 +6,10 @@ declare module "@deepseek-ai/cordis" {
     tools: {
       register(definition: unknown): () => void;
     };
-    settings: {
-      register<T>(
-        ns: SettingsNamespace,
-        schema: unknown,
-        options?: { base?: Partial<T>; applies?: "live" | "restart" },
-      ): SettingsScope<T>;
-      get(ns: SettingsNamespace): SettingsScope<unknown> | undefined;
-    };
     credentials?: {
       resolve(
         ref: string,
       ): Promise<{ value: string; source?: string } | undefined>;
-    };
-    typert: {
-      register(contribution: TypertContribution): () => void | Promise<void>;
     };
     systemPrompt: {
       section(section: {
@@ -36,7 +20,7 @@ declare module "@deepseek-ai/cordis" {
     };
   }
   interface Events {
-    "loader/volatile-update"(entry: { id: string }): void;
+    "loader/volatile-update"(paths: readonly (readonly string[])[]): void;
     "tools/pre-execute"(
       exec: ToolExecution,
       next: () => Promise<PreToolDecision>,

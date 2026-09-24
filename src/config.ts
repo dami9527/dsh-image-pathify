@@ -17,8 +17,8 @@ import {
 
 /**
  * Mark one field live-editable. 0.1.7 settings forms only project fields whose
- * `meta.volatile` is set. The schemastery this package bundles predates
- * `.volatile()`, but `.extra('volatile', true)` writes the same flag.
+ * `meta.volatile` is set. schemastery 3.18.4 `.volatile()` writes that flag
+ * and returns a live ref; `.extra` remains for an older schema copy.
  */
 function live<S>(schema: S): S {
   const candidate = schema as {

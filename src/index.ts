@@ -49,7 +49,7 @@ import type {} from "@deepseek-ai/dsh-typert-registry";
 import type {} from "@deepseek-ai/dsh-system-prompt";
 import { installAdmissionShim } from "./admission.ts";
 import type { Config as ConfigShape } from "./config.ts";
-import { deepFreeze } from "./freeze.ts";
+import { deepFreeze } from "@deepseek-ai/dsh-util-values";
 import { readConfig } from "./live.ts";
 import { messagesHaveImage, pathifyImages } from "./pathify.ts";
 import {
@@ -71,8 +71,6 @@ export {
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
 } from "./defaults.ts";
-export { IMAGE_PATHIFY_NAMESPACE } from "./settings.ts";
-export { toPublicSettings } from "./settings.ts";
 export {
   DEFAULT_VISION_PROMPT,
   analyzeImage,

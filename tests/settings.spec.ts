@@ -1,15 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Context, symbols } from "@deepseek-ai/cordis";
-import {
-  DEFAULT_API_KEY_ENV,
-  DEFAULT_MAX_TOKENS,
-  DEFAULT_VISION_BASE_URL,
-  DEFAULT_VISION_MODEL,
-} from "../src/defaults.ts";
+import { DEFAULT_API_KEY_ENV } from "../src/defaults.ts";
 import { ImagePathifyRuntime } from "../src/runtime.ts";
-import { applySettingsUpdate, toPublicSettings } from "../src/settings.ts";
 import { credentialRefName, resolveVisionApiKey } from "../src/credentials.ts";
-import type { Config } from "../src/config.ts";
 
 const contexts: Context[] = [];
 
@@ -23,45 +16,6 @@ function originalOf(service: object): object {
   const original = Reflect.get(service, symbols.original) as object | undefined;
   return original ?? service;
 }
-
-function sample(overrides: Partial<Config> = {}): Config {
-  return {
-    models: [],
-    relaxAdmission: true,
-    apiKeyEnv: DEFAULT_API_KEY_ENV,
-    visionModel: DEFAULT_VISION_MODEL,
-    visionBaseUrl: DEFAULT_VISION_BASE_URL,
-    disableThinking: true,
-    maxTokens: DEFAULT_MAX_TOKENS,
-    ...overrides,
-  };
-}
-
-describe("toPublicSettings", () => {
-  it("exposes the credential reference and never an apiKey field", () => {
-    const publicSettings = toPublicSettings(sample());
-    expect(publicSettings.apiKeyEnv).toBe(DEFAULT_API_KEY_ENV);
-    expect(publicSettings).not.toHaveProperty("apiKey");
-    expect(publicSettings).not.toHaveProperty("apiKeySet");
-  });
-});
-
-describe("applySettingsUpdate", () => {
-  it("writes non-secret fields", async () => {
-    let stored = sample();
-    const scope = {
-      get: () => stored,
-      watch: () => () => {},
-      update: async (patch: Partial<Config>) => {
-        stored = { ...stored, ...patch };
-      },
-    };
-    await applySettingsUpdate(scope, { visionModel: "qwen-vl-max" });
-    expect(stored.visionModel).toBe("qwen-vl-max");
-    await applySettingsUpdate(scope, { maxTokens: 4096 });
-    expect(stored.maxTokens).toBe(4096);
-  });
-});
 
 describe("credentialRefName", () => {
   it("falls back to the default when the name is not a POSIX identifier", () => {

@@ -78,25 +78,6 @@ describe("analyze_image live settings", () => {
           ? { value: "sk-test-key", source: "file" }
           : undefined,
     });
-    ctx.provide("settings", {
-      register(
-        _ns: unknown,
-        _schema: unknown,
-        options?: { base?: Partial<Config> },
-      ) {
-        let value = sample({
-          ...options?.base,
-          visionModel: DEFAULT_VISION_MODEL,
-        });
-        return {
-          get: () => value,
-          watch: () => () => {},
-          update: async (patch: Partial<Config>) => {
-            value = { ...value, ...patch };
-          },
-        };
-      },
-    });
 
     const fetchImpl = vi.fn(
       async () =>
@@ -143,23 +124,6 @@ describe("analyze_image live settings", () => {
         ref === DEFAULT_API_KEY_ENV
           ? { value: "sk-test-key", source: "file" }
           : undefined,
-    });
-    ctx.provide("settings", {
-      register(
-        _ns: unknown,
-        _schema: unknown,
-        options?: { base?: Partial<Config> },
-      ) {
-        const value = sample({
-          ...options?.base,
-          visionModel: DEFAULT_VISION_MODEL,
-        });
-        return {
-          get: () => value,
-          watch: () => () => {},
-          update: async () => {},
-        };
-      },
     });
 
     await ctx.plugin(plugin, {});
@@ -220,23 +184,6 @@ describe("analyze_image live settings", () => {
           ? { value: "sk-test-key", source: "file" }
           : undefined,
     });
-    ctx.provide("settings", {
-      register(
-        _ns: unknown,
-        _schema: unknown,
-        options?: { base?: Partial<Config> },
-      ) {
-        const value = sample({
-          ...options?.base,
-          maxTokens: 4096,
-        });
-        return {
-          get: () => value,
-          watch: () => () => {},
-          update: async () => {},
-        };
-      },
-    });
 
     await ctx.plugin(plugin, { maxTokens: 4096 });
     expect(tool).toBeDefined();
@@ -273,16 +220,6 @@ describe("upgrade command profile", () => {
     contexts.push(ctx);
     ctx.provide("llm", {
       resolveModelInfo: async () => ({ inputModalities: ["text"] }),
-    });
-    ctx.provide("settings", {
-      register() {
-        const value = sample();
-        return {
-          get: () => value,
-          watch: () => () => {},
-          update: async () => {},
-        };
-      },
     });
     ctx.provide("typert", {
       register() {

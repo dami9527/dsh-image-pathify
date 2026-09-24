@@ -6,7 +6,6 @@ import type {} from "@deepseek-ai/dsh-client-ui-slots";
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
-  unsaved: "未保存",
   save: "保存",
   saving: "保存中…",
   discard: "放弃修改",
@@ -49,7 +48,6 @@ export type ImagePathifyKey = keyof typeof zh;
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
-  unsaved: "Unsaved",
   save: "Save",
   saving: "Saving…",
   discard: "Discard",

@@ -4,7 +4,6 @@
  * Components never see `ctx`.
  */
 import type {} from "@deepseek-ai/dsh-api-remotes/client";
-import type {} from "@deepseek-ai/dsh-client-connection/client";
 import type { ClientContext } from "@deepseek-ai/dsh-client-runtime/client";
 import type {} from "@deepseek-ai/dsh-client-locale/client";
 import type {} from "@deepseek-ai/dsh-client-ui-settings/client";
@@ -32,7 +31,6 @@ export const ENTRY_ID = "dsh-image-pathify";
 export const inject = [
   "slots",
   "locale",
-  "connection",
   "remote",
   "remote.credentials",
   "configForms",
@@ -162,17 +160,21 @@ export function apply(ctx: ClientContext): void {
     void loadUpdate();
   });
 
-  ctx.configForms.whileServed([ENTRY_ID], () =>
-    ctx.slots.inject("plugins.bundle.config", () =>
-      ctx.slots.register(
-        {
-          name: "plugins.bundle.config",
-          key: ENTRY_ID,
-          locale: NS,
-          inject: (): ImagePathifyCardInjected => card.inject(),
-        },
-        ImagePathifyCard,
+  ctx.effect(
+    () =>
+      ctx.configForms.whileServed([ENTRY_ID], () =>
+        ctx.slots.inject("plugins.bundle.config", () =>
+          ctx.slots.register(
+            {
+              name: "plugins.bundle.config",
+              key: ENTRY_ID,
+              locale: NS,
+              inject: (): ImagePathifyCardInjected => card.inject(),
+            },
+            ImagePathifyCard,
+          ),
+        ),
       ),
-    ),
+    "dsh-image-pathify: page",
   );
 }

@@ -29,18 +29,21 @@ function unwrap(value: unknown): unknown {
   return isVolatileRef(value) ? value.get() : value;
 }
 
+function plainFields(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const record = value as Record<string, unknown>;
+  if (!FIELDS.some((field) => isVolatileRef(record[field]))) return undefined;
+  const plain: Record<string, unknown> = {};
+  for (const field of FIELDS) plain[field] = unwrap(record[field]);
+  return plain;
+}
+
 /**
- * Snapshot the live config. Plain objects (unit tests, and hosts whose
- * schemastery has no volatile fields) are parsed through the schema.
+ * Snapshot the live config. 3.18.4 `.volatile()` and the loader both store
+ * field refs; this returns the plain values callers compare and send.
  */
 export function readConfig(input: unknown): ConfigShape {
-  if (typeof input === "object" && input !== null) {
-    const record = input as Record<string, unknown>;
-    if (FIELDS.some((field) => isVolatileRef(record[field]))) {
-      const plain: Record<string, unknown> = {};
-      for (const field of FIELDS) plain[field] = unwrap(record[field]);
-      return Config(plain as never) as ConfigShape;
-    }
-  }
-  return Config((input ?? {}) as never) as ConfigShape;
+  const source = plainFields(input) ?? input ?? {};
+  const parsed = Config(source as never);
+  return (plainFields(parsed) ?? parsed) as ConfigShape;
 }
