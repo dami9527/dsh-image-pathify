@@ -20,9 +20,7 @@ const FIELDS = [
 ] as const;
 
 function isVolatileRef(value: unknown): value is { get(): unknown } {
-  return (
-    typeof value === "object" && value !== null && VOLATILE_WRITE in value
-  );
+  return typeof value === "object" && value !== null && VOLATILE_WRITE in value;
 }
 
 function unwrap(value: unknown): unknown {

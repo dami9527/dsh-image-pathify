@@ -1,6 +1,6 @@
 {
   "name": "dsh-image-pathify",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "description": "DeepSeek Harness plugin: let text-only models receive pasted images, and analyze them with a built-in OpenAI-compatible vision tool",
   "icon": "./icon.svg",
   "license": "MIT",
