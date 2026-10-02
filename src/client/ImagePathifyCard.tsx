@@ -225,7 +225,7 @@ export function ImagePathifyCard({
             id="plugin-config-image-pathify-key"
             className="dsh_imagePathify_input"
             type="password"
-            autoComplete="off"
+            autoComplete="new-password"
             spellCheck={false}
             value={state.apiKeyText}
             disabled={state.saving || !state.apiKeyWritable}

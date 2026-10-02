@@ -14,7 +14,10 @@
  *    API. Immediately
  *    before dispatch, `llm/stream` also drops `read_image` for text-only
  *    models and `analyze_image` for vision models, using the provider/model
- *    on that request (not the possibly-stale agent options). On a vision
+ *    on that request (not the possibly-stale agent options). From
+ *    0.1.7-rc.2 the same name is removed from `toolHistory`, because an
+ *    `in-history` route would otherwise restore the hidden declaration
+ *    after this waterfall. On a vision
  *    route it also strips the `analyze_image` paragraph from `options.system`
  *    and from `system`-role message text (0.1.5 agent-loop leaves
  *    `GenerateOptions.system` unset). `read_image` is denied on non-vision

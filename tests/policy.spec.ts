@@ -352,6 +352,83 @@ describe("filterDispatchForRoute", () => {
     const already = { tools: [{ name: "bash" }], messages };
     expect(filterDispatchForRoute(already, true)).toBe(already);
   });
+
+  it("drops the hidden tool from toolHistory so an in-history route cannot restore it", () => {
+    const keptUpdate = {
+      messageId: "keep",
+      additions: [{ name: "bash", description: "shell" }],
+    };
+    const history = {
+      tools: [
+        { name: ANALYZE_IMAGE_TOOL, description: "vision" },
+        { name: READ_IMAGE_TOOL, description: "read" },
+        { name: "bash", description: "shell" },
+      ],
+      updates: [
+        {
+          messageId: "added",
+          additions: [
+            { name: ANALYZE_IMAGE_TOOL, description: "vision" },
+            { name: "bash", description: "shell" },
+          ],
+        },
+        keptUpdate,
+      ],
+    };
+    const filtered = filterDispatchForRoute(
+      { tools: request.tools, toolHistory: history },
+      true,
+    );
+    expect(filtered.tools?.map((tool) => tool.name)).toEqual([
+      READ_IMAGE_TOOL,
+      "bash",
+    ]);
+    expect(filtered.toolHistory?.tools.map((tool) => tool.name)).toEqual([
+      READ_IMAGE_TOOL,
+      "bash",
+    ]);
+    expect(
+      filtered.toolHistory?.updates[0]?.additions.map((tool) => tool.name),
+    ).toEqual(["bash"]);
+    expect(filtered.toolHistory?.updates[1]).toBe(keptUpdate);
+    expect(filtered.toolHistory?.tools[1]).toBe(history.tools[2]);
+  });
+
+  it("drops read_image from toolHistory on a text-only dispatch", () => {
+    const history = {
+      tools: [{ name: READ_IMAGE_TOOL }, { name: ANALYZE_IMAGE_TOOL }],
+      updates: [{ additions: [{ name: READ_IMAGE_TOOL }] }],
+    };
+    const filtered = filterDispatchForRoute(
+      { tools: request.tools, toolHistory: history },
+      false,
+    );
+    expect(filtered.tools?.map((tool) => tool.name)).toEqual([
+      ANALYZE_IMAGE_TOOL,
+      "bash",
+    ]);
+    expect(filtered.toolHistory?.tools.map((tool) => tool.name)).toEqual([
+      ANALYZE_IMAGE_TOOL,
+    ]);
+    expect(filtered.toolHistory?.updates[0]?.additions).toEqual([]);
+  });
+
+  it("keeps toolHistory identity when the hidden tool is not in it", () => {
+    const history = {
+      tools: [{ name: "bash" }],
+      updates: [{ additions: [{ name: "bash" }] }],
+    };
+    const filtered = filterDispatchForRoute(
+      { tools: request.tools, toolHistory: history },
+      true,
+    );
+    expect(filtered.toolHistory).toBe(history);
+  });
+
+  it("leaves a pre-0.1.7-rc.2 request without toolHistory unchanged in that field", () => {
+    const filtered = filterDispatchForRoute(request, false);
+    expect("toolHistory" in filtered).toBe(false);
+  });
 });
 
 describe("requestHeaderRoute", () => {

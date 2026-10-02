@@ -4,8 +4,11 @@
  *
  * 1. A system-prompt section names the pathify prefix and the replacement tool.
  * 2. `llm/stream` drops `analyze_image` (vision) or `read_image` (text-only)
- *    using the provider/model actually being dispatched. Vision also strips
- *    the `analyze_image` paragraph from `options.system` (older one-shot
+ *    using the provider/model actually being dispatched, and drops that same
+ *    name from `toolHistory` when the request carries one (0.1.7-rc.2). An
+ *    `in-history` route rebuilds declarations from that history after the
+ *    waterfall, so a tools-only edit would put the hidden tool back. Vision
+ *    also strips the `analyze_image` paragraph from `options.system` (older
  *    callers) and from `system`-role message text (0.1.5 agent-loop puts the
  *    prompt in history, not `GenerateOptions.system`). Assemble-time
  *    filtering only runs after a request header exists, because the first
@@ -35,7 +38,8 @@ export const READ_IMAGE_TOOL = "read_image";
 export interface RouteSource {
   session?: {
     requestHeader?: () =>
-      { config?: { provider?: string; model?: string } } | undefined;
+      | { config?: { provider?: string; model?: string } }
+      | undefined;
   };
   options?: { provider?: string; model?: string };
 }
@@ -121,9 +125,25 @@ export interface DispatchMessage {
   content?: readonly DispatchContentBlock[];
 }
 
+/**
+ * Session-folded tool history as `projectToolUpdates` reads it. Present from
+ * harness 0.1.7-rc.2; older requests omit it.
+ */
+export interface DispatchToolHistory {
+  readonly tools: readonly { readonly name: string }[];
+  readonly updates: readonly {
+    readonly additions: readonly { readonly name: string }[];
+  }[];
+}
+
 /** One adapter-facing request whose tool catalog and system text we may trim. */
 export interface DispatchRequest {
   tools?: readonly { name: string }[];
+  /**
+   * Folded declarations. Dropped names must leave this object too, or an
+   * `in-history` route restores them after `llm/stream`.
+   */
+  toolHistory?: DispatchToolHistory;
   system?: string;
   messages?: readonly DispatchMessage[];
 }
@@ -169,10 +189,62 @@ function stripVisionPromptFromMessages<T extends DispatchMessage>(
   return changed ? next : messages;
 }
 
+function isNamedTool(value: unknown): value is { readonly name: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { name?: unknown }).name === "string"
+  );
+}
+
+function isToolHistory(value: unknown): value is DispatchToolHistory {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as { tools?: unknown; updates?: unknown };
+  if (!Array.isArray(record.tools) || !record.tools.every(isNamedTool)) {
+    return false;
+  }
+  if (!Array.isArray(record.updates)) return false;
+  return record.updates.every((update) => {
+    if (typeof update !== "object" || update === null) return false;
+    const additions = (update as { additions?: unknown }).additions;
+    return Array.isArray(additions) && additions.every(isNamedTool);
+  });
+}
+
+/**
+ * Remove one tool from folded history. Returns the same reference when the
+ * name is absent, so a request that only changes `tools` keeps its history.
+ */
+function omitToolFromHistory(
+  history: DispatchToolHistory,
+  name: string,
+): DispatchToolHistory {
+  const tools = history.tools.some((tool) => tool.name === name)
+    ? history.tools.filter((tool) => tool.name !== name)
+    : history.tools;
+  let updatesChanged = false;
+  const updates = history.updates.map((update) => {
+    if (!update.additions.some((tool) => tool.name === name)) return update;
+    updatesChanged = true;
+    return {
+      ...update,
+      additions: update.additions.filter((tool) => tool.name !== name),
+    };
+  });
+  if (tools === history.tools && !updatesChanged) return history;
+  return {
+    ...history,
+    tools,
+    updates: updatesChanged ? updates : history.updates,
+  };
+}
+
 /**
  * Drop the off-route image tool from a live `llm/stream` request. Vision also
  * loses the text-only `analyze_image` prompt paragraph when it is present in
- * `system` or in `system`-role message text.
+ * `system` or in `system`-role message text. A matching `toolHistory` entry
+ * is removed with the schema: 0.1.7-rc.2 rebuilds `in-history` declarations
+ * from that object after this listener returns.
  */
 export function filterDispatchForRoute<T extends DispatchRequest>(
   request: T,
@@ -183,6 +255,15 @@ export function filterDispatchForRoute<T extends DispatchRequest>(
   const nextTools = tools?.filter((tool) => tool.name !== deny);
   const toolsChanged =
     nextTools !== undefined && nextTools.length !== (tools?.length ?? 0);
+  let toolHistory = request.toolHistory;
+  let historyChanged = false;
+  if (toolsChanged && isToolHistory(toolHistory)) {
+    const pruned = omitToolFromHistory(toolHistory, deny);
+    if (pruned !== toolHistory) {
+      toolHistory = pruned;
+      historyChanged = true;
+    }
+  }
   let system = request.system;
   if (vision && typeof system === "string") {
     system = stripVisionParagraph(system);
@@ -197,10 +278,13 @@ export function filterDispatchForRoute<T extends DispatchRequest>(
       messagesChanged = true;
     }
   }
-  if (!toolsChanged && !systemChanged && !messagesChanged) return request;
+  if (!toolsChanged && !historyChanged && !systemChanged && !messagesChanged) {
+    return request;
+  }
   return {
     ...request,
     ...(toolsChanged ? { tools: nextTools } : {}),
+    ...(historyChanged ? { toolHistory } : {}),
     ...(systemChanged ? { system } : {}),
     ...(messagesChanged ? { messages } : {}),
   };
