@@ -7,6 +7,13 @@
 /** Default pathify prefix placed before each durable local path. Not user-facing. */
 export const DEFAULT_PREFIX = "Saved attachments: ";
 
+/**
+ * Where the current Harness UI exposes this plugin's settings. 0.2.x moved the
+ * plugin page out of Settings, so model- and user-facing recovery text names
+ * both the English and Chinese entries.
+ */
+export const SETTINGS_PATH = "Plugins → Vision (插件 → 识图)";
+
 /** Default vision model id (DeepSeek official vision). */
 export const DEFAULT_VISION_MODEL = "deepseek-flash";
 

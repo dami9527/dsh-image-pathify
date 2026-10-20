@@ -20,7 +20,7 @@
 
 import type { Context } from "@deepseek-ai/cordis";
 import type { PreToolDecision, ToolExecution } from "@deepseek-ai/dsh-tools";
-import { DEFAULT_PREFIX } from "./defaults.ts";
+import { DEFAULT_PREFIX, SETTINGS_PATH } from "./defaults.ts";
 
 /** Prompt-section order in the 100–199 per-tool guidance band. */
 export const VISION_PROMPT_ORDER = 118;
@@ -65,7 +65,7 @@ export function visionPromptText(): string {
     `When the user sends, pastes, or references an image — including an embedded image, a file:// URL, or a local path ending in .png/.jpg/.jpeg/.gif/.webp/.bmp/.tif/.tiff/.heic/.heif/.avif — call analyze_image with the absolute path. Never call read_image for an image.`,
     `Text that starts with "${DEFAULT_PREFIX}" is a saved image file. Strip that prefix and pass the remaining absolute path to analyze_image, with a question about the image.`,
     `When several images appear in the same turn, pass every path in a single analyze_image call via the images array. Do not call analyze_image once per image.`,
-    `analyze_image also accepts an http(s) image URL. If analyze_image fails because the vision API is not configured, tell the user to open Settings → Plugins → Vision and set the API key and model.`,
+    `analyze_image also accepts an http(s) image URL. If analyze_image fails because the vision API is not configured, tell the user to open ${SETTINGS_PATH} and set the API key and model.`,
   ].join(" ");
 }
 

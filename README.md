@@ -1,6 +1,6 @@
 # dsh-image-pathify
 
-> 0.2.0 需要 DeepSeek Harness **>= 0.1.7-rc.1**。dsh 0.1.5 及以下请继续使用 `dsh-image-pathify@0.1.9`。
+> 0.2.2 兼容 DeepSeek Harness **0.1.7-rc.1 ~ 0.2.1-rc.2**，已在 **0.2.1-rc.2** 实测。dsh 0.1.5 及以下请继续使用 `dsh-image-pathify@0.1.9`。
 
 让 **deepseek-v4** 这类「不能看图」的模型，也能处理你贴进聊天里的图片，并直接调用插件内置的识图工具。
 
@@ -34,7 +34,9 @@ dsh web
 
 任何 OpenAI 兼容的视觉接口都可以，把地址(部分地址需要后面加/v1)和模型改成你的服务即可。设置页改动保存后立即生效，不用重启。
 
-![设置 → 插件 → 识图](assets/settings.png)
+![插件 → 识图](assets/settings.png)
+
+> 截图为旧版 0.1.9 的设置页；0.2.x 的入口是顶部 **插件 → 识图**，字段相同。
 
 ## 更新
 
@@ -112,11 +114,14 @@ dsh plugin --profile web add dsh-image-pathify@version
 
 模型侧只多一个工具 `analyze_image`（仅不能看图的模型能看见、能调用，防止与具备识图能力的模型冲突）。
 
-- 一张图：`image` 填本地绝对路径或 `http(s)` 图片 URL（不要带路径前缀）
+- 一张图：`image` 填本地路径、`file://` URL 或 `http(s)` 图片 URL（不要带路径前缀）
+- 本地相对路径按当前会话工作目录解析；没有会话工作目录时按 dsh 进程目录解析
 - 多张图：用 `images` 一次传入全部路径，插件会在**同一次**视觉请求里带上所有图片，不必一张一张等
 - `prompt` 可选
 
 同一轮里有多张图时，系统提示会要求模型把所有路径放进一次 `analyze_image` 调用，而不是循环调用。
+
+PTC 模式下模型只能直接调用 `run_code`，此时 `analyze_image` 在 `run_code` 的 SDK 里调用；插件提示词已经包含这条说明。
 
 ## 开发与构建
 

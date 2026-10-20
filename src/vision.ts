@@ -10,6 +10,7 @@
 
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
+import { SETTINGS_PATH } from "./defaults.ts";
 
 /** Default question when the model omits `prompt`. */
 export const DEFAULT_VISION_PROMPT = "请详细描述这张图片的内容。";
@@ -89,7 +90,7 @@ function completionsUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim();
   if (trimmed.length === 0) {
     throw new Error(
-      "Vision API base URL is empty. Open Settings → Plugins → Vision and set the endpoint.",
+      `Vision API base URL is empty. Open ${SETTINGS_PATH} and set the endpoint.`,
     );
   }
   return `${trimmed.replace(/\/?$/, "/")}chat/completions`;
@@ -168,7 +169,7 @@ async function imageUrlPart(
 function assertVisionConfigured(apiKey: string, model: string): void {
   if (apiKey.trim().length === 0 || model.trim().length === 0) {
     throw new Error(
-      "Vision API is not configured. Open Settings → Plugins → Vision and set the API key and model.",
+      `Vision API is not configured. Open ${SETTINGS_PATH} and set the API key and model.`,
     );
   }
 }

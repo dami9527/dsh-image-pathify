@@ -73,6 +73,7 @@ export {
   DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
+  SETTINGS_PATH,
 } from "./defaults.ts";
 export {
   DEFAULT_VISION_PROMPT,
