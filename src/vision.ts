@@ -10,6 +10,7 @@
 
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { SETTINGS_PATH } from "./defaults.ts";
 
 /** Default question when the model omits `prompt`. */
@@ -86,6 +87,21 @@ export function isRemoteImageUrl(image: string): boolean {
   return /^https?:\/\//i.test(image.trim());
 }
 
+/**
+ * Convert a `file://` URL to the native path the local reader expects.
+ * Non-file inputs and malformed file URLs pass through unchanged so the
+ * eventual read error names the value the model supplied.
+ */
+export function localImagePath(image: string): string {
+  const source = image.trim();
+  if (!/^file:/i.test(source)) return source;
+  try {
+    return fileURLToPath(source);
+  } catch {
+    return source;
+  }
+}
+
 function completionsUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim();
   if (trimmed.length === 0) {
@@ -156,7 +172,7 @@ async function imageUrlPart(
   io: VisionIo,
   signal?: AbortSignal,
 ): Promise<string> {
-  const source = image.trim();
+  const source = localImagePath(image);
   if (source.length === 0)
     throw new Error("image must be a non-empty path or URL");
   if (isRemoteImageUrl(source)) return source;

@@ -7,6 +7,7 @@
  * @module dsh-image-pathify/tool
  */
 
+import { isAbsolute, resolve } from "node:path";
 import type { Context } from "@deepseek-ai/cordis";
 import type { Config } from "./config.ts";
 import { resolveVisionApiKey } from "./credentials.ts";
@@ -15,7 +16,53 @@ import {
   analyzeImage,
   analyzeImages,
   DEFAULT_VISION_PROMPT,
+  isRemoteImageUrl,
+  localImagePath,
 } from "./vision.ts";
+
+/** Structural face of the session working-directory service used here. */
+interface WorkingDirectorySeam {
+  ensure(agent: unknown, signal?: AbortSignal): Promise<string>;
+}
+
+/**
+ * Resolve the calling Session's effective directory. Compositions without the
+ * 0.2.x working-directory service keep the previous process-relative behavior.
+ */
+export async function resolveWorkingDirectory(
+  ctx: Context,
+  exec: { agent?: unknown; signal: AbortSignal },
+): Promise<string | undefined> {
+  if (exec.agent === undefined) return undefined;
+  const service = ctx.get("workingDirectory") as
+    | WorkingDirectorySeam
+    | undefined;
+  if (service === undefined || typeof service.ensure !== "function") {
+    return undefined;
+  }
+  try {
+    return await service.ensure(exec.agent, exec.signal);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Normalize `file://` URLs and resolve relative local paths against the
+ * Session directory. Remote URLs and absolute paths keep their spelling.
+ */
+export function resolveImageSources(
+  sources: readonly string[],
+  workingDirectory?: string,
+): string[] {
+  return sources.map((source) => {
+    const local = localImagePath(source);
+    if (isRemoteImageUrl(local) || isAbsolute(local)) return local;
+    return workingDirectory !== undefined && workingDirectory.length > 0
+      ? resolve(workingDirectory, local)
+      : local;
+  });
+}
 
 /**
  * Collect unique non-empty image sources from `image` and/or `images`.
@@ -57,7 +104,7 @@ export function registerAnalyzeImageTool(
   ctx.tools.register({
     name: "analyze_image",
     description:
-      'Analyze one or more images at local absolute paths or HTTP(S) URLs and return text descriptions. Use this instead of read_image when the current model cannot view images, including when the user gives a local image path rather than embedding the file. If you can already see the image, answer directly and do not call this tool. Conversation text that starts with "Saved attachments: " is a saved image file — pass the absolute path after that prefix. When the user sends several images, pass every path in a single call via images (or an image array). Do not call this tool once per image.',
+      'Analyze one or more images at local paths, file:// URLs, or HTTP(S) URLs and return text descriptions. Use this instead of read_image when the current model cannot view images, including when the user gives a local image path rather than embedding the file. If you can already see the image, answer directly and do not call this tool. Conversation text that starts with "Saved attachments: " is a saved image file — pass the path after that prefix. Relative local paths resolve against the current Session working directory. When the user sends several images, pass every path in a single call via images (or an image array). Do not call this tool once per image.',
     parameters: {
       type: "object",
       properties: {
@@ -67,13 +114,13 @@ export function registerAnalyzeImageTool(
             { type: "array", items: { type: "string" } },
           ],
           description:
-            'Absolute local image path, or an http(s) URL. Do not include the "Saved attachments: " prefix. For several images, prefer images.',
+            'Local image path (absolute or relative to the Session working directory), a file:// URL, or an http(s) URL. Do not include the "Saved attachments: " prefix. For several images, prefer images.',
         },
         images: {
           type: "array",
           items: { type: "string" },
           description:
-            "One or more absolute local paths or http(s) URLs. When the user sends several images in the same turn, pass every path here in a single call.",
+            "One or more local paths (absolute or relative to the Session working directory), file:// URLs, or http(s) URLs. When the user sends several images in the same turn, pass every path here in a single call.",
         },
         prompt: {
           type: "string",
@@ -109,12 +156,14 @@ export function registerAnalyzeImageTool(
     },
     async execute(
       args: { image?: unknown; images?: unknown; prompt?: string },
-      exec: { signal: AbortSignal },
+      exec: { signal: AbortSignal; agent?: unknown },
     ) {
-      const images = collectImageSources(args);
-      if (images.length === 0) {
+      const sources = collectImageSources(args);
+      if (sources.length === 0) {
         throw new Error("image or images must include a non-empty path or URL");
       }
+      const workingDirectory = await resolveWorkingDirectory(ctx, exec);
+      const images = resolveImageSources(sources, workingDirectory);
       const settings = current();
       const prompt =
         typeof args.prompt === "string" && args.prompt.trim().length > 0

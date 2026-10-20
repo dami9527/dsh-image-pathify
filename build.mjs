@@ -57,6 +57,10 @@ await build({
   logLevel: "info",
 });
 
-execFileSync("node_modules/.bin/tsc", ["-p", "tsconfig.build.json"], {
+execFileSync(process.execPath, [
+  "node_modules/typescript/bin/tsc",
+  "-p",
+  "tsconfig.build.json",
+], {
   stdio: "inherit",
 });
