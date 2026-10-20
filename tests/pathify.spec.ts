@@ -78,6 +78,11 @@ function catalogTools() {
   ];
 }
 
+/** Expected pathified text; native separators keep the suite portable. */
+function savedAttachment(sha: string): string {
+  return `Saved attachments: ${join("/attachments", "objects", sha.slice(0, 2), sha)}`;
+}
+
 /** Records the exact options the adapter received. */
 class RecordingAdapter extends LlmAdapter {
   lastOptions: GenerateOptions | undefined;
@@ -205,7 +210,7 @@ describe("dsh-image-pathify", () => {
       { type: "text", text: "what is in" },
       {
         type: "text",
-        text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+        text: savedAttachment("a".repeat(64)),
       },
     ]);
   });
@@ -227,7 +232,7 @@ describe("dsh-image-pathify", () => {
 
     expect(adapter.lastOptions?.messages[0]?.content[1]).toEqual({
       type: "text",
-      text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+      text: savedAttachment("a".repeat(64)),
     });
   });
 
@@ -386,7 +391,7 @@ describe("dsh-image-pathify", () => {
       const text = adapter.lastOptions?.messages[0]?.content[1];
       expect((text as { text: string }).text).not.toContain("/legacy-path");
       expect((text as { text: string }).text).not.toContain(
-        "/attachments/objects",
+        join("/attachments", "objects"),
       );
       expect((text as { text: string }).text).toContain(
         join(dir, "attachments", "vision-paths"),
@@ -423,11 +428,11 @@ describe("dsh-image-pathify", () => {
       { type: "text", text: "compare" },
       {
         type: "text",
-        text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+        text: savedAttachment("a".repeat(64)),
       },
       {
         type: "text",
-        text: `Saved attachments: /attachments/objects/bb/${"b".repeat(64)}`,
+        text: savedAttachment("b".repeat(64)),
       },
     ]);
   });
@@ -455,7 +460,7 @@ describe("dsh-image-pathify", () => {
     expect(adapter.lastOptions?.messages[0]?.content).toEqual([
       {
         type: "text",
-        text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+        text: savedAttachment("a".repeat(64)),
       },
     ]);
   });
@@ -488,7 +493,7 @@ describe("dsh-image-pathify", () => {
     expect(adapter.lastOptions?.messages[1]?.content).toEqual([
       {
         type: "text",
-        text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+        text: savedAttachment("a".repeat(64)),
       },
     ]);
   });
@@ -651,7 +656,7 @@ describe("dsh-image-pathify", () => {
     ]);
     expect(adapter.lastOptions?.messages[0]?.content[1]).toEqual({
       type: "text",
-      text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+      text: savedAttachment("a".repeat(64)),
     });
     let fired = false;
     controller.signal.addEventListener(
@@ -764,7 +769,7 @@ describe("admission shim", () => {
     );
     expect(adapter.lastOptions?.messages[0]?.content[1]).toEqual({
       type: "text",
-      text: `Saved attachments: /attachments/objects/aa/${"a".repeat(64)}`,
+      text: savedAttachment("a".repeat(64)),
     });
   });
 

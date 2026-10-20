@@ -1,9 +1,13 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   analyzeImage,
   analyzeImages,
   formatMultiImageResult,
   isRemoteImageUrl,
+  localImagePath,
   multiImagePrompt,
   shouldDisableThinking,
   DEFAULT_VISION_PROMPT,
@@ -18,6 +22,20 @@ describe("isRemoteImageUrl", () => {
   it("rejects local paths", () => {
     expect(isRemoteImageUrl("/tmp/a.png")).toBe(false);
     expect(isRemoteImageUrl("C:\\\\img.png")).toBe(false);
+  });
+});
+
+describe("localImagePath", () => {
+  it("converts a file URL to a native path", () => {
+    const file = join(tmpdir(), "shot.png");
+    expect(localImagePath(pathToFileURL(file).href)).toBe(file);
+  });
+
+  it("leaves remote URLs and plain paths alone", () => {
+    expect(localImagePath(" https://example.com/a.png ")).toBe(
+      "https://example.com/a.png",
+    );
+    expect(localImagePath("/tmp/a.png")).toBe("/tmp/a.png");
   });
 });
 
@@ -87,6 +105,31 @@ describe("analyzeImage", () => {
     expect((init as RequestInit).headers).toMatchObject({
       Authorization: "Bearer sk-test",
     });
+  });
+
+  it("reads a file:// URL as a local file", async () => {
+    const file = join(tmpdir(), "file-url.png");
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "a file" } }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const readFile = vi.fn(async (_path: string) => new Uint8Array([4, 5, 6]));
+    await analyzeImage(
+      {
+        apiKey: "sk-test",
+        model: "qwen-vl-plus",
+        baseUrl: "https://example.com/v1",
+        image: pathToFileURL(file).href,
+        prompt: DEFAULT_VISION_PROMPT,
+      },
+      { fetch: fetchImpl as unknown as typeof fetch, readFile },
+    );
+    expect(readFile.mock.calls[0]?.[0]).toBe(file);
   });
 
   it("encodes a local file as a data URL", async () => {

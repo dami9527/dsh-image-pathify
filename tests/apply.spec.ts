@@ -213,7 +213,6 @@ describe("analyze_image live settings", () => {
 
 describe("upgrade command profile", () => {
   async function bootWithUpdateProbe(
-    extras: Record<string, unknown> = {},
     setup?: (ctx: Context) => void,
   ): Promise<ImagePathifyRuntime> {
     const ctx = new Context();
@@ -226,9 +225,6 @@ describe("upgrade command profile", () => {
         return () => {};
       },
     });
-    for (const [name, service] of Object.entries(extras)) {
-      ctx.provide(name, service);
-    }
     setup?.(ctx);
     vi.stubGlobal(
       "fetch",
@@ -253,39 +249,12 @@ describe("upgrade command profile", () => {
     });
   });
 
-  it("pins the copied command to desktopProfiles.current.name", async () => {
-    const runtime = await bootWithUpdateProbe({
-      desktopProfiles: {
-        current: { name: "desktop", dir: "/tmp/desktop" },
-      },
-    });
-    await expect(runtime.getUpdate()).resolves.toMatchObject({
-      command: "dsh plugin --profile desktop add dsh-image-pathify@9.9.9",
-    });
-  });
-
-  it("pins the copied command to Loader baseUrl when Desktop is absent", async () => {
-    const runtime = await bootWithUpdateProbe({}, (ctx) => {
+  it("pins the copied command to Loader baseUrl", async () => {
+    const runtime = await bootWithUpdateProbe((ctx) => {
       ctx.baseUrl = `${pathToFileURL(join("/tmp/dsh-home/profiles", "mybot")).href}/`;
     });
     await expect(runtime.getUpdate()).resolves.toMatchObject({
       command: "dsh plugin --profile mybot add dsh-image-pathify@9.9.9",
-    });
-  });
-
-  it("prefers desktopProfiles over Loader baseUrl", async () => {
-    const runtime = await bootWithUpdateProbe(
-      {
-        desktopProfiles: {
-          current: { name: "desktop", dir: "/tmp/desktop" },
-        },
-      },
-      (ctx) => {
-        ctx.baseUrl = `${pathToFileURL(join("/tmp/dsh-home/profiles", "mybot")).href}/`;
-      },
-    );
-    await expect(runtime.getUpdate()).resolves.toMatchObject({
-      command: "dsh plugin --profile desktop add dsh-image-pathify@9.9.9",
     });
   });
 });

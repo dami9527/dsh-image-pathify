@@ -35,9 +35,8 @@
  * nested `ctx.inject` so pathify still loads in a composition that has only
  * the LLM seam (and so unit tests that stub only `llm` keep working). A web
  * or desktop profile provides all of them. Config is the Loader entry: every
- * field is volatile, so a plugins-page save is visible on the next call.
- * Desktop `desktopProfiles` is probed with `ctx.get`, never required
- * `inject`; ordinary DSH falls back to Loader `ctx.baseUrl`.
+ * field is volatile, so a plugins-page save is visible on the next call. The
+ * upgrade-command profile comes from Loader `ctx.baseUrl`.
  * @module dsh-image-pathify
  */
 
@@ -73,6 +72,7 @@ export {
   DEFAULT_PREFIX,
   DEFAULT_VISION_BASE_URL,
   DEFAULT_VISION_MODEL,
+  SETTINGS_PATH,
 } from "./defaults.ts";
 export {
   DEFAULT_VISION_PROMPT,
@@ -80,6 +80,7 @@ export {
   analyzeImages,
   formatMultiImageResult,
   isRemoteImageUrl,
+  localImagePath,
   multiImagePrompt,
 } from "./vision.ts";
 export { collectImageSources } from "./tool.ts";
@@ -229,7 +230,7 @@ export function apply(ctx: Context, config?: object): void {
 
   ctx.inject(["typert"], (tctx: Context) => {
     const updateProbe = checkPluginUpdate({
-      profile: resolvePluginProfile(ctx.get("desktopProfiles"), ctx.baseUrl),
+      profile: resolvePluginProfile(ctx.baseUrl),
     });
     new ImagePathifyRuntime(tctx, () => updateProbe);
     tctx.effect(() => {

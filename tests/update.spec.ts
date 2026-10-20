@@ -27,6 +27,16 @@ describe("compareVersions", () => {
     expect(compareVersions("v0.1.1", "0.1.1")).toBe(0);
     expect(compareVersions("1.0", "1.0.1")).toBeLessThan(0);
   });
+
+  it("orders prereleases below their release and by SemVer identifiers", () => {
+    expect(compareVersions("0.2.2-rc.1", "0.2.2")).toBeLessThan(0);
+    expect(compareVersions("0.2.2", "0.2.2-rc.1")).toBeGreaterThan(0);
+    expect(compareVersions("0.2.2-rc.1", "0.2.2-rc.2")).toBeLessThan(0);
+    expect(compareVersions("0.2.2-rc.10", "0.2.2-rc.2")).toBeGreaterThan(0);
+    expect(compareVersions("0.2.2-alpha", "0.2.2-rc.1")).toBeLessThan(0);
+    expect(compareVersions("0.2.2-rc", "0.2.2-rc.1")).toBeLessThan(0);
+    expect(compareVersions("0.2.2+build.1", "0.2.2")).toBe(0);
+  });
 });
 
 describe("profileNameFromBaseUrl", () => {
@@ -51,32 +61,12 @@ describe("profileNameFromBaseUrl", () => {
 });
 
 describe("resolvePluginProfile", () => {
-  it("defaults to web when Desktop services and baseUrl are absent", () => {
-    expect(resolvePluginProfile(undefined)).toBe("web");
+  it("defaults to web when Loader baseUrl is absent", () => {
+    expect(resolvePluginProfile()).toBe("web");
   });
 
-  it("uses desktopProfiles.current.name when the service is present", () => {
-    expect(
-      resolvePluginProfile({ current: { name: "desktop", dir: "/tmp/p" } }),
-    ).toBe("desktop");
-    expect(resolvePluginProfile({ current: { name: "custom" } })).toBe(
-      "custom",
-    );
-  });
-
-  it("falls back to Loader baseUrl when Desktop is absent", () => {
-    expect(resolvePluginProfile(undefined, profileDirUrl("mybot"))).toBe(
-      "mybot",
-    );
-  });
-
-  it("prefers desktopProfiles over Loader baseUrl", () => {
-    expect(
-      resolvePluginProfile(
-        { current: { name: "desktop" } },
-        profileDirUrl("mybot"),
-      ),
-    ).toBe("desktop");
+  it("uses the Loader baseUrl profile when present", () => {
+    expect(resolvePluginProfile(profileDirUrl("mybot"))).toBe("mybot");
   });
 });
 

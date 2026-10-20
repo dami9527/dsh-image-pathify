@@ -43,17 +43,6 @@ function isUsableProfileName(name: string): boolean {
   );
 }
 
-function desktopProfileName(desktopProfiles: unknown): string | undefined {
-  if (typeof desktopProfiles !== "object" || desktopProfiles === null) {
-    return undefined;
-  }
-  const name = (desktopProfiles as { current?: { name?: unknown } }).current
-    ?.name;
-  return typeof name === "string" && isUsableProfileName(name)
-    ? name
-    : undefined;
-}
-
 /**
  * Read the profile directory basename from Loader `ctx.baseUrl`.
  *
@@ -82,19 +71,14 @@ function quoteProfileArg(profile: string): string {
 /**
  * Pick the profile the copied upgrade command should target.
  *
- * 1. `desktopProfiles.current.name` when Desktop registered the service
- * 2. `$DSH_HOME/profiles/<name>` basename from Loader `ctx.baseUrl`
- * 3. {@link DEFAULT_PLUGIN_PROFILE}
+ * 1. `$DSH_HOME/profiles/<name>` basename from Loader `ctx.baseUrl`
+ * 2. {@link DEFAULT_PLUGIN_PROFILE}
+ *
+ * 0.1.7 and 0.2.1 expose no `desktopProfiles` service, so the old desktop
+ * probe is gone rather than reading a service that never exists.
  */
-export function resolvePluginProfile(
-  desktopProfiles: unknown,
-  baseUrl?: unknown,
-): string {
-  return (
-    desktopProfileName(desktopProfiles) ??
-    profileNameFromBaseUrl(baseUrl) ??
-    DEFAULT_PLUGIN_PROFILE
-  );
+export function resolvePluginProfile(baseUrl?: unknown): string {
+  return profileNameFromBaseUrl(baseUrl) ?? DEFAULT_PLUGIN_PROFILE;
 }
 
 function readOwnPackage(): { name: string; version: string } {
@@ -127,28 +111,70 @@ export function upgradeCommand(
   return `dsh plugin --profile ${quoteProfileArg(profile)} add ${packageName}@${version}`;
 }
 
+interface ParsedVersion {
+  readonly core: readonly [number, number, number];
+  readonly prerelease: readonly string[];
+}
+
 /**
- * Compare two dotted versions (`1.2.3`). Pre-release suffixes are ignored.
+ * Compare two versions with SemVer prerelease precedence. Build metadata is
+ * ignored, so `0.2.2+build` equals `0.2.2`; a release is newer than any of its
+ * prereleases (`0.2.2-rc.1` < `0.2.2`).
  * @returns negative when `left` is older than `right`.
  */
 export function compareVersions(left: string, right: string): number {
   const a = parseVersion(left);
   const b = parseVersion(right);
   for (let i = 0; i < 3; i += 1) {
-    const av = a[i] ?? 0;
-    const bv = b[i] ?? 0;
+    const av = a.core[i] ?? 0;
+    const bv = b.core[i] ?? 0;
     if (av !== bv) return av < bv ? -1 : 1;
   }
-  return 0;
+  return comparePrerelease(a.prerelease, b.prerelease);
 }
 
-function parseVersion(value: string): [number, number, number] {
-  const core = value.trim().replace(/^v/i, "").split("-")[0] ?? "0";
-  const parts = core.split(".").map((part) => {
+function parseVersion(value: string): ParsedVersion {
+  const normalized = value.trim().replace(/^v/i, "").split("+")[0] ?? "";
+  const [corePart, ...prereleaseParts] = normalized.split("-");
+  const parts = (corePart ?? "0").split(".").map((part) => {
     const n = Number.parseInt(part, 10);
     return Number.isFinite(n) ? n : 0;
   });
-  return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+  return {
+    core: [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0],
+    prerelease: prereleaseParts
+      .join("-")
+      .split(".")
+      .filter((part) => part.length > 0),
+  };
+}
+
+function comparePrerelease(
+  left: readonly string[],
+  right: readonly string[],
+): number {
+  if (left.length === 0 && right.length === 0) return 0;
+  if (left.length === 0) return 1;
+  if (right.length === 0) return -1;
+  const length = Math.max(left.length, right.length);
+  for (let i = 0; i < length; i += 1) {
+    const a = left[i];
+    const b = right[i];
+    if (a === undefined) return -1;
+    if (b === undefined) return 1;
+    if (a === b) continue;
+    const aNumeric = /^\d+$/.test(a);
+    const bNumeric = /^\d+$/.test(b);
+    if (aNumeric && bNumeric) {
+      const av = Number(a);
+      const bv = Number(b);
+      if (av !== bv) return av < bv ? -1 : 1;
+      continue;
+    }
+    if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
+    return a < b ? -1 : 1;
+  }
+  return 0;
 }
 
 function idleStatus(

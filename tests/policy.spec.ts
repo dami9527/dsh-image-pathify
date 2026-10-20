@@ -27,6 +27,9 @@ describe("visionPromptText", () => {
     expect(text).toContain("images array");
     expect(text).toContain("Do not call analyze_image once per image");
     expect(text).toContain("file://");
+    expect(text).toContain("Plugins → Vision (插件 → 识图)");
+    expect(text).toContain("run_code");
+    expect(text).toContain("PTC mode");
     expect(text).toContain(".png");
     expect(text).toContain(".heic");
     expect(text).toContain(".tiff");
