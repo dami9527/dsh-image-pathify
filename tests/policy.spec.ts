@@ -7,6 +7,7 @@ import {
   analyzeImageDenyReason,
   analyzeImagePreExecute,
   assembleVisionPolicy,
+  filterAssemblyForRoute,
   filterDispatchForRoute,
   readImageDenyReason,
   readImagePreExecute,
@@ -168,6 +169,38 @@ describe("stripAnalyzeImage", () => {
     ]);
     expect(stripped.tools.map((tool) => tool.name)).toEqual(["read", "bash"]);
     expect(stripped.variables).toEqual({ a: "1" });
+  });
+});
+
+describe("assemblies with no tool list yet", () => {
+  // Harness 0.2.2-rc.1 hands `system-prompt/assemble` listeners an assembly
+  // whose `tools` are attached only after the waterfall settles. Both helpers
+  // must stay no-ops instead of throwing on `undefined.filter`.
+  const noTools = { sections: [{ name: "persona" }] } as unknown as {
+    sections: { name: string }[];
+    tools: { name: string }[];
+  };
+
+  it("stripAnalyzeImage keeps the assembly and never throws", () => {
+    expect(() => stripAnalyzeImage(noTools)).not.toThrow();
+    expect(stripAnalyzeImage(noTools).sections.map((s) => s.name)).toEqual([
+      "persona",
+    ]);
+  });
+
+  it("filterAssemblyForRoute returns the same assembly when tools are absent", () => {
+    expect(filterAssemblyForRoute(noTools, false)).toBe(noTools);
+    expect(filterAssemblyForRoute(noTools, true)).toEqual(noTools);
+  });
+
+  it("filterAssemblyForRoute still filters a present tool list", () => {
+    const assembly = {
+      sections: [],
+      tools: [{ name: READ_IMAGE_TOOL }, { name: "bash" }],
+    };
+    expect(
+      filterAssemblyForRoute(assembly, false).tools.map((t) => t.name),
+    ).toEqual(["bash"]);
   });
 });
 

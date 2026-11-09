@@ -44,10 +44,17 @@ export interface RouteSource {
   options?: { provider?: string; model?: string };
 }
 
-/** Shape of one prompt assembly this policy may filter. */
+/**
+ * Shape of one prompt assembly this policy may filter.
+ *
+ * Both lists are optional on purpose. From harness 0.2.2-rc.1 on, the
+ * `system-prompt/assemble` waterfall hands listeners an assembly whose `tools`
+ * are attached only after the waterfall settles, so a required shape here would
+ * promise something the runtime does not guarantee.
+ */
 export interface PromptAssemblyLike {
-  sections: { name: string }[];
-  tools: { name: string }[];
+  sections?: { name: string }[];
+  tools?: { name: string }[];
 }
 
 /** Per-assembly context that may carry the live agent and turn signal. */
@@ -90,12 +97,20 @@ export function analyzeImageDenyReason(): string {
 export function stripAnalyzeImage<T extends PromptAssemblyLike>(
   assembly: T,
 ): T {
+  const sections = assembly.sections;
+  const tools = assembly.tools;
   return {
     ...assembly,
-    sections: assembly.sections.filter(
-      (section) => section.name !== VISION_PROMPT_NAME,
-    ),
-    tools: assembly.tools.filter((tool) => tool.name !== ANALYZE_IMAGE_TOOL),
+    ...(Array.isArray(sections)
+      ? {
+          sections: sections.filter(
+            (section) => section.name !== VISION_PROMPT_NAME,
+          ),
+        }
+      : {}),
+    ...(Array.isArray(tools)
+      ? { tools: tools.filter((tool) => tool.name !== ANALYZE_IMAGE_TOOL) }
+      : {}),
   } as T;
 }
 
@@ -108,9 +123,13 @@ export function filterAssemblyForRoute<T extends PromptAssemblyLike>(
   vision: boolean,
 ): T {
   if (vision) return stripAnalyzeImage(assembly);
-  const tools = assembly.tools.filter((tool) => tool.name !== READ_IMAGE_TOOL);
-  if (tools.length === assembly.tools.length) return assembly;
-  return { ...assembly, tools } as T;
+  const tools = assembly.tools;
+  // Harness 0.2.2-rc.1 attaches the tool list after this waterfall, so a
+  // missing list means there is nothing to filter here.
+  if (!Array.isArray(tools)) return assembly;
+  const filtered = tools.filter((tool) => tool.name !== READ_IMAGE_TOOL);
+  if (filtered.length === tools.length) return assembly;
+  return { ...assembly, tools: filtered } as T;
 }
 
 /** One content block we may inspect when stripping the vision prompt. */
