@@ -38,21 +38,6 @@ dsh web
 
 > 截图为旧版 0.1.9 的设置页；0.2.x 的入口是顶部 **插件 → 识图**，字段相同。
 
-## 更新
-
-已装版本落后于 npm 最新版时，**识图**卡片 header会显示「发现新版本 x → y」和 **复制升级命令**，点按钮把命令复制到剪贴板。命令里的 `--profile` 按当前进程解析，取不到兜底 `web`。
-
-![更新](assets/update.png)
-
-1. 结束当前正在跑的dsh，例如： `dsh web`（终端里 `Ctrl+C`）
-2. 执行复制出来的命令：
-
-```sh
-dsh plugin --profile web add dsh-image-pathify@version
-```
-
-再启动 `dsh web`
-
 ## 怎么确认可用
 
 1. 插件页里打开 **识图**，详情上方出现识图设置

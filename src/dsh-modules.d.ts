@@ -41,36 +41,6 @@ declare module "@deepseek-ai/dsh-tools" {
   }): unknown;
 }
 
-declare module "@deepseek-ai/dsh-typert-registry" {}
-
-declare module "@deepseek-ai/dsh-typert-registry/types" {
-  import type { InvocationDescriptor } from "@deepseek-ai/dsh-typert-protocol";
-  export type TypertFace = "host" | "client";
-  export interface TypertMemberModel {
-    readonly kind: string;
-    readonly name: string;
-    readonly signature: string;
-  }
-  export interface TypertContribution {
-    readonly package: string;
-    readonly face: TypertFace;
-    readonly schemas: readonly unknown[];
-    readonly model: {
-      readonly services: readonly {
-        readonly key: string;
-        readonly exportName: string;
-        readonly description: string;
-        readonly tags: readonly string[];
-        readonly members: readonly TypertMemberModel[];
-        readonly types: readonly unknown[];
-      }[];
-      readonly events: readonly unknown[];
-      readonly objects: readonly unknown[];
-    };
-    readonly invocations: readonly InvocationDescriptor[];
-  }
-}
-
 declare module "@deepseek-ai/dsh-client-runtime/client" {
   export interface ClientContext {
     effect(
@@ -92,7 +62,6 @@ declare module "@deepseek-ai/dsh-client-runtime/client" {
       ): (key: string, params?: Record<string, string>) => string;
     };
     remote: {
-      $mount(contribution: unknown): Promise<() => void | Promise<void>>;
       $on?(event: string, listener: (...args: never[]) => void): () => void;
     };
     slots: {
@@ -122,7 +91,6 @@ declare module "@deepseek-ai/dsh-client-runtime/client" {
         register: () => unknown,
       ): () => void;
     };
-    reflect?: { get(name: string): unknown };
   }
 }
 

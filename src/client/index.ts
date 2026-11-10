@@ -12,7 +12,6 @@ import {
   publicSettingsSchema,
   type ImagePathifyPublicSettings,
   type ImagePathifySettingsUpdate,
-  type ImagePathifyUpdateStatus,
 } from "../contract.ts";
 import { ImagePathifyCardController } from "./card-form.ts";
 import {
@@ -21,13 +20,12 @@ import {
 } from "./ImagePathifyCard.tsx";
 import { liveCredentials } from "./credentials-api.ts";
 import { NS, en, zh } from "./locales.ts";
-import { IMAGE_PATHIFY_REMOTE } from "./remote.ts";
 import { adoptStyles } from "./styles.ts";
 
 /** Loader entry id. Also the `plugins.bundle.config` slot key. */
 export const ENTRY_ID = "dsh-image-pathify";
 
-/** Required services: slots, locale, the entry form, credentials, and the probe. */
+/** Required services: slots, locale, the entry form, and credentials. */
 export const inject = [
   "slots",
   "locale",
@@ -35,14 +33,6 @@ export const inject = [
   "remote.credentials",
   "configForms",
 ];
-
-/** The mounted imagePathify namespace service's callable face. */
-interface ImagePathifyNamespaceFace {
-  getUpdate(): Promise<
-    | { ok: true; value: ImagePathifyUpdateStatus }
-    | { ok: false; error: { code: string; message: string; details: object } }
-  >;
-}
 
 /**
  * Compose the Vision card on the installed-plugin page, above the row list.
@@ -57,7 +47,6 @@ export function apply(ctx: ClientContext): void {
   );
 
   const form = ctx.configForms.get(ENTRY_ID);
-  let remote: ImagePathifyNamespaceFace | undefined;
   let settingsTail: Promise<void> = Promise.resolve();
 
   const readForm = (): ImagePathifyPublicSettings | undefined => {
@@ -125,39 +114,8 @@ export function apply(ctx: ClientContext): void {
     return onUpdated.call(ctx.remote, "credentials/reference-updated", refresh);
   }, "dsh-image-pathify: credential invalidations");
 
-  const loadUpdate = async (): Promise<void> => {
-    const handle = remote;
-    if (handle === undefined) return;
-    try {
-      const result = await handle.getUpdate();
-      if (remote !== handle) return;
-      if (!result.ok) return;
-      card.receiveUpdate(result.value);
-    } catch {
-      // Probe failures stay silent: the card simply has no header banner.
-    }
-  };
-
-  ctx.effect(async () => {
-    const dispose = await ctx.remote.$mount(IMAGE_PATHIFY_REMOTE);
-    remote = (ctx.reflect as unknown as { get(name: string): unknown }).get(
-      "remote.imagePathify",
-    ) as ImagePathifyNamespaceFace | undefined;
-    if (remote === undefined) {
-      throw new Error(
-        "dsh-image-pathify: the imagePathify Remote namespace did not mount",
-      );
-    }
-    void loadUpdate();
-    return () => {
-      remote = undefined;
-      void dispose();
-    };
-  }, "dsh-image-pathify: remote");
-
   ctx.on("connection/reset", () => {
     publishForm();
-    void loadUpdate();
   });
 
   ctx.effect(

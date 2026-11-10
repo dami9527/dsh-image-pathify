@@ -1,6 +1,6 @@
 /** Vision plugin card: staged settings under Settings → Plugins. */
 
-import { useEffect, useState, type ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 import type { PathifyModelEntry } from "../contract.ts";
 import type { ImagePathifyCardState } from "./card-form.ts";
 import { fmt, type ImagePathifyKey } from "./locales.ts";
@@ -65,28 +65,6 @@ function PlusIcon(): ReactElement {
   );
 }
 
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    try {
-      const input = document.createElement("textarea");
-      input.value = text;
-      input.setAttribute("readonly", "");
-      input.style.position = "fixed";
-      input.style.left = "-9999px";
-      document.body.appendChild(input);
-      input.select();
-      const ok = document.execCommand("copy");
-      document.body.removeChild(input);
-      return ok;
-    } catch {
-      return false;
-    }
-  }
-}
-
 function modelKey(entry: PathifyModelEntry): string {
   return `${entry.provider}\0${entry.model}`;
 }
@@ -135,19 +113,7 @@ export function ImagePathifyCard({
 }: ImagePathifyCardProps): ReactElement | null {
   const [providerDraft, setProviderDraft] = useState("");
   const [modelDraft, setModelDraft] = useState("");
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
-    "idle",
-  );
   const state = useImagePathifyCard((snapshot) => snapshot);
-  useEffect(() => {
-    if (copyState === "idle") return;
-    const id = window.setTimeout(() => {
-      setCopyState("idle");
-    }, 2000);
-    return () => {
-      window.clearTimeout(id);
-    };
-  }, [copyState]);
   if (!state.available) return null;
 
   const disabled = !state.writable || state.saving;
@@ -166,40 +132,8 @@ export function ImagePathifyCard({
     setModelDraft("");
   };
 
-  const copyUpgrade = (): void => {
-    const command = state.update?.command;
-    if (command === undefined) return;
-    void copyText(command).then((ok) => {
-      setCopyState(ok ? "copied" : "failed");
-    });
-  };
-
-  const copyLabel =
-    copyState === "copied"
-      ? t("updateCopied")
-      : copyState === "failed"
-        ? t("updateCopyFail")
-        : t("updateCopy");
-
   return (
     <div className="dsh_imagePathify_form">
-      {state.update !== undefined ? (
-        <div className="dsh_imagePathify_update" role="status">
-          <span className="dsh_imagePathify_updateText">
-            {translate("updateHint", {
-              old: state.update.installedVersion,
-              new: state.update.latestVersion,
-            })}
-          </span>
-          <button
-            type="button"
-            className="dsh_imagePathify_updateCopy"
-            onClick={copyUpgrade}
-          >
-            {copyLabel}
-          </button>
-        </div>
-      ) : null}
       <div className="dsh_imagePathify_body">
         <div className="dsh_imagePathify_field">
           <div className="dsh_imagePathify_fieldHead">

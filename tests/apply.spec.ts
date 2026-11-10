@@ -1,7 +1,5 @@
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Context, symbols } from "@deepseek-ai/cordis";
+import { Context } from "@deepseek-ai/cordis";
 import type { Config } from "../src/config.ts";
 import {
   DEFAULT_API_KEY_ENV,
@@ -10,7 +8,6 @@ import {
   DEFAULT_VISION_MODEL,
 } from "../src/defaults.ts";
 import * as plugin from "../src/index.ts";
-import type { ImagePathifyRuntime } from "../src/runtime.ts";
 
 const contexts: Context[] = [];
 
@@ -19,11 +16,6 @@ afterEach(async () => {
   await Promise.all(contexts.splice(0).map((ctx) => ctx.fiber.dispose()));
 });
 
-/** The unproxied service original (cordis caller-tracking may wrap instances). */
-function originalOf(service: object): object {
-  const original = Reflect.get(service, symbols.original) as object | undefined;
-  return original ?? service;
-}
 
 interface AnalyzeTool {
   name: string;
@@ -211,50 +203,3 @@ describe("analyze_image live settings", () => {
   });
 });
 
-describe("upgrade command profile", () => {
-  async function bootWithUpdateProbe(
-    setup?: (ctx: Context) => void,
-  ): Promise<ImagePathifyRuntime> {
-    const ctx = new Context();
-    contexts.push(ctx);
-    ctx.provide("llm", {
-      resolveModelInfo: async () => ({ inputModalities: ["text"] }),
-    });
-    ctx.provide("typert", {
-      register() {
-        return () => {};
-      },
-    });
-    setup?.(ctx);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify({ "dist-tags": { latest: "9.9.9" } }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }),
-      ),
-    );
-    await ctx.plugin(plugin, {});
-    return originalOf(
-      ctx.get("imagePathify") as ImagePathifyRuntime,
-    ) as ImagePathifyRuntime;
-  }
-
-  it("defaults the copied command to the web profile", async () => {
-    const runtime = await bootWithUpdateProbe();
-    await expect(runtime.getUpdate()).resolves.toMatchObject({
-      command: "dsh plugin --profile web add dsh-image-pathify@9.9.9",
-    });
-  });
-
-  it("pins the copied command to Loader baseUrl", async () => {
-    const runtime = await bootWithUpdateProbe((ctx) => {
-      ctx.baseUrl = `${pathToFileURL(join("/tmp/dsh-home/profiles", "mybot")).href}/`;
-    });
-    await expect(runtime.getUpdate()).resolves.toMatchObject({
-      command: "dsh plugin --profile mybot add dsh-image-pathify@9.9.9",
-    });
-  });
-});
