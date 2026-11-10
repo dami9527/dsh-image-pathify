@@ -71,8 +71,6 @@ declare module "@deepseek-ai/dsh-typert-registry/types" {
   }
 }
 
-declare module "@deepseek-ai/dsh-system-prompt" {}
-
 declare module "@deepseek-ai/dsh-client-runtime/client" {
   export interface ClientContext {
     effect(
