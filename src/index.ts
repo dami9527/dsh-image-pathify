@@ -31,12 +31,11 @@
  * `ctx.llm.resolveModelInfo` so those gates admit images for the configured
  * text-only models (see {@link admission}).
  *
- * `llm` is required. `tools`, `systemPrompt`, and `typert` are joined with
- * nested `ctx.inject` so pathify still loads in a composition that has only
- * the LLM seam (and so unit tests that stub only `llm` keep working). A web
- * or desktop profile provides all of them. Config is the Loader entry: every
- * field is volatile, so a plugins-page save is visible on the next call. The
- * upgrade-command profile comes from Loader `ctx.baseUrl`.
+ * `llm` is required. `tools` and `systemPrompt` are joined with nested
+ * `ctx.inject` so pathify still loads in a composition that has only the LLM
+ * seam (and so unit tests that stub only `llm` keep working). A web or desktop
+ * profile provides both. Config is the Loader entry: every field is volatile,
+ * so a plugins-page save is visible on the next call.
  * @module dsh-image-pathify
  */
 
@@ -47,7 +46,6 @@ import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
 // the program so `ctx.on('llm/stream', …)` and `ctx.llm` type-check.
 import type {} from "@deepseek-ai/dsh-llm";
 import type {} from "@deepseek-ai/dsh-tools";
-import type {} from "@deepseek-ai/dsh-typert-registry";
 import type {} from "@deepseek-ai/dsh-system-prompt";
 import { installAdmissionShim } from "./admission.ts";
 import type { Config as ConfigShape } from "./config.ts";
@@ -59,10 +57,7 @@ import {
   filterDispatchForRoute,
   visionToolsPreExecute,
 } from "./policy.ts";
-import { ImagePathifyRuntime } from "./runtime.ts";
 import { registerAnalyzeImageTool } from "./tool.ts";
-import { TYPERT_MANIFEST } from "./typert.ts";
-import { checkPluginUpdate, resolvePluginProfile } from "./update.ts";
 
 export { Config } from "./config.ts";
 export { readConfig } from "./live.ts";
@@ -227,19 +222,6 @@ export function apply(ctx: Context, config?: object): void {
 
   ctx.on("loader/volatile-update", () => {
     syncAdmission();
-  });
-
-  ctx.inject(["typert"], (tctx: Context) => {
-    const updateProbe = checkPluginUpdate({
-      profile: resolvePluginProfile(ctx.baseUrl),
-    });
-    new ImagePathifyRuntime(tctx, () => updateProbe);
-    tctx.effect(() => {
-      const dispose = tctx.typert.register(TYPERT_MANIFEST);
-      return () => {
-        void dispose();
-      };
-    }, "dsh-image-pathify: typert manifest");
   });
 
   ctx.inject(["tools"], (tctx: Context) => {

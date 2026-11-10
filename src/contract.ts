@@ -1,14 +1,10 @@
 /**
- * Wire contract for the `imagePathify` Remote: public settings (no API key
- * literal) and the patch the settings page sends. Shared by the host Typert
- * manifest and the client `$mount` contribution.
+ * Wire contract for the settings card: public settings (no API key literal) and
+ * the patch the settings page sends.
  * @module dsh-image-pathify/contract
  */
 
-import type {
-  InvocationDescriptor,
-  TypertSchema,
-} from "@deepseek-ai/dsh-typert-protocol";
+import type { TypertSchema } from "@deepseek-ai/dsh-typert-protocol";
 import {
   DEFAULT_API_KEY_ENV,
   DEFAULT_DISABLE_THINKING,
@@ -37,18 +33,6 @@ export interface ImagePathifyPublicSettings {
   readonly maxTokens: number;
   readonly models: readonly PathifyModelEntry[];
   readonly relaxAdmission: boolean;
-}
-
-/**
- * Result of a silent npm latest-version probe. `updateAvailable` is the only
- * signal the card uses; a failed probe still returns this shape with
- * `updateAvailable: false`.
- */
-export interface ImagePathifyUpdateStatus {
-  readonly installedVersion: string;
-  readonly latestVersion: string;
-  readonly updateAvailable: boolean;
-  readonly command: string;
 }
 
 /**
@@ -119,8 +103,7 @@ function readModel(value: unknown): PathifyModelEntry {
 }
 
 /** Strict codec for the public settings object. */
-export const publicSettingsSchema: TypertSchema<ImagePathifyPublicSettings> = {
-  parse(value: unknown): ImagePathifyPublicSettings {
+export const publicSettingsSchema: TypertSchema<ImagePathifyPublicSettings> = {  parse(value: unknown): ImagePathifyPublicSettings {
     if (!isRecord(value)) fail("settings must be an object");
     const modelsRaw = value.models;
     if (!Array.isArray(modelsRaw)) fail("models must be an array");
@@ -136,32 +119,3 @@ export const publicSettingsSchema: TypertSchema<ImagePathifyPublicSettings> = {
   },
 };
 
-/** Strict codec for the update-probe result. */
-export const updateStatusSchema: TypertSchema<ImagePathifyUpdateStatus> = {
-  parse(value: unknown): ImagePathifyUpdateStatus {
-    if (!isRecord(value)) fail("update status must be an object");
-    return {
-      installedVersion: readString(value.installedVersion, "installedVersion"),
-      latestVersion: readString(value.latestVersion, "latestVersion"),
-      updateAvailable: readBoolean(value.updateAvailable, "updateAvailable"),
-      command: readString(value.command, "command"),
-    };
-  },
-};
-
-/** Host invocation descriptors shared with the client `$mount` contribution. */
-export const IMAGE_PATHIFY_INVOCATIONS: readonly InvocationDescriptor[] = [
-  {
-    id: "dsh-image-pathify#imagePathify/getUpdate",
-    service: "imagePathify",
-    namespace: "imagePathify",
-    method: "getUpdate",
-    invocation: { kind: "direct" },
-    parameters: [],
-    result: {
-      mode: "strict",
-      typeSymbol: "dsh-image-pathify#ImagePathifyUpdateStatus",
-      create: () => updateStatusSchema,
-    },
-  },
-];

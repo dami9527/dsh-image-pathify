@@ -8,7 +8,6 @@
 import type {
   ImagePathifyPublicSettings,
   ImagePathifySettingsUpdate,
-  ImagePathifyUpdateStatus,
   PathifyModelEntry,
 } from "../contract.ts";
 import { defaultPublicSettings } from "../contract.ts";
@@ -56,15 +55,6 @@ export interface ImagePathifyCardState {
   maxTokens: CardFieldState;
   relaxAdmission: { checked: boolean; overridden: boolean };
   models: { entries: readonly PathifyModelEntry[]; overridden: boolean };
-  /** Installed plugin version from the host probe; empty until it lands. */
-  installedVersion: string;
-  update:
-    | {
-        installedVersion: string;
-        latestVersion: string;
-        command: string;
-      }
-    | undefined;
 }
 
 /** Actions the card's slot entry injects. */
@@ -129,7 +119,7 @@ export function parseMaxTokens(
   return n;
 }
 
-/** Stages Vision settings over the plugin-owned Remote and writes them on save. */
+/** Stages Vision settings over the plugin config form and writes them on save. */
 export class ImagePathifyCardController {
   private stored: ImagePathifyPublicSettings = defaultPublicSettings();
   private available = false;
@@ -143,14 +133,6 @@ export class ImagePathifyCardController {
   private relaxDraft: boolean | undefined;
   private modelsDraft: PathifyModelEntry[] | undefined;
   private credential = { ref: "", configured: false, writable: true };
-  private installedVersion = "";
-  private update:
-    | {
-        installedVersion: string;
-        latestVersion: string;
-        command: string;
-      }
-    | undefined = undefined;
   private readonly store: SnapshotStore<ImagePathifyCardState>;
 
   constructor(
@@ -175,31 +157,9 @@ export class ImagePathifyCardController {
     void this.syncCredential();
   }
 
-  /** Hide the card while the Remote is down. */
+  /** Hide the card while the entry form is unavailable. */
   markUnavailable(): void {
     this.available = false;
-    this.installedVersion = "";
-    this.update = undefined;
-    this.publish();
-  }
-
-  /**
-   * Apply a host npm-probe result. The installed version is always kept for
-   * the title; the upgrade banner is only kept when an update is available.
-   */
-  receiveUpdate(status: ImagePathifyUpdateStatus): void {
-    this.installedVersion = status.installedVersion.trim();
-    this.update =
-      status.updateAvailable &&
-      this.installedVersion.length > 0 &&
-      status.latestVersion.length > 0 &&
-      status.command.length > 0
-        ? {
-            installedVersion: this.installedVersion,
-            latestVersion: status.latestVersion,
-            command: status.command,
-          }
-        : undefined;
     this.publish();
   }
 
@@ -320,8 +280,6 @@ export class ImagePathifyCardController {
         entries: models,
         overridden: !modelsEqual(models, DEFAULTS.models),
       },
-      installedVersion: this.installedVersion,
-      update: this.update,
     };
   }
 

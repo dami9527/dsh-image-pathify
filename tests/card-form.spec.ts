@@ -128,36 +128,6 @@ describe("ImagePathifyCardController", () => {
     expect(card.snapshot.getSnapshot().dirty).toBe(false);
   });
 
-  it("keeps the installed version after a no-op probe and only banners available updates", () => {
-    const card = new ImagePathifyCardController(async () => sample());
-    card.receive(sample());
-    expect(card.snapshot.getSnapshot().update).toBeUndefined();
-    expect(card.snapshot.getSnapshot().installedVersion).toBe("");
-    card.receiveUpdate({
-      installedVersion: "0.1.0",
-      latestVersion: "0.1.1",
-      updateAvailable: true,
-      command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
-    });
-    expect(card.snapshot.getSnapshot().update).toEqual({
-      installedVersion: "0.1.0",
-      latestVersion: "0.1.1",
-      command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
-    });
-    expect(card.snapshot.getSnapshot().installedVersion).toBe("0.1.0");
-    card.receiveUpdate({
-      installedVersion: "0.1.1",
-      latestVersion: "0.1.1",
-      updateAvailable: false,
-      command: "dsh plugin --profile web add dsh-image-pathify@0.1.1",
-    });
-    expect(card.snapshot.getSnapshot().update).toBeUndefined();
-    expect(card.snapshot.getSnapshot().installedVersion).toBe("0.1.1");
-    card.markUnavailable();
-    expect(card.snapshot.getSnapshot().installedVersion).toBe("");
-    expect(card.snapshot.getSnapshot().update).toBeUndefined();
-  });
-
   it("stages max-token edits and restores the defaults", async () => {
     const write = vi.fn(async (update) =>
       sample({
