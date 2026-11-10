@@ -1,6 +1,6 @@
 # dsh-image-pathify
 
-> 0.2.2 兼容 DeepSeek Harness **0.1.7-rc.1 ~ 0.2.1-rc.2**，已在 **0.2.1-rc.2** 实测。dsh 0.1.5 及以下请继续使用 `dsh-image-pathify@0.1.9`。
+> 0.2.3 兼容 DeepSeek Harness **0.1.7-rc.1 ~ 0.2.2-rc.1**，已在 **0.2.2-rc.1** 实测（同时保留 0.2.1-rc.2 及更早版本的兼容路径）。dsh 0.1.5 及以下请继续使用 `dsh-image-pathify@0.1.9`。
 
 让 **deepseek-v4** 这类「不能看图」的模型，也能处理你贴进聊天里的图片，并直接调用插件内置的识图工具。
 
@@ -131,6 +131,18 @@ pnpm check
 ```
 
 `pnpm check` 会按顺序执行 `typecheck`、`test`、`build`。
+
+### dsh 0.2.2 的提示词组装变化
+
+0.2.2 把 `system-prompt/assemble` 瀑布流的参数拆成了 `PromptPresentation`（只有 `sections` / `contexts` / `variables`），工具声明改成瀑布流结束之后由宿主拼回，监听器既读不到也改不了。旧版插件在监听器里调用 `assembly.tools.filter(...)`，会在会话的第二次请求开始抛 `Cannot read properties of undefined (reading 'filter')`，整轮失败。
+
+现在插件按版本分层：
+
+- 组装阶段只裁剪 `sections`（视觉提示词段落），路由优先取 `context.modelSelection`（0.2.2 新增，第一步就精确），取不到才回退到最后一次请求头；
+- 工具可见性全部交给 `llm/stream` 的 `filterDispatchForRoute`，它同时处理 `options.tools` 和 `toolHistory`，0.2.2 下仍然有效；
+- `PromptAssemblyLike.tools` 为可选，0.2.1 及更早版本传入 tools 时行为不变。
+
+`tests/host-assemble.spec.ts` 直接驱动宿主真实的 `SystemPrompt.assemble()`，回归这条契约。
 
 ## License
 

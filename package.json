@@ -1,6 +1,6 @@
 {
   "name": "dsh-image-pathify",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "DeepSeek Harness plugin: let text-only models receive pasted images, and analyze them with a built-in OpenAI-compatible vision tool",
   "icon": "./icon.svg",
   "license": "MIT",
@@ -78,9 +78,9 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-llm": ">=0.1.7-rc.1",
     "@deepseek-ai/dsh-attachment": ">=0.1.7-rc.1",
     "@deepseek-ai/dsh-home-paths": ">=0.1.7-rc.1",
+    "@deepseek-ai/dsh-llm": ">=0.1.7-rc.1",
     "@deepseek-ai/dsh-util-values": ">=0.1.7-rc.1",
     "react": "^18.2.0 || ^19"
   },
@@ -105,12 +105,13 @@
     }
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.5",
-    "@deepseek-ai/schemastery": "^3.18.5",
-    "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-attachment": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-home-paths": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-util-values": "0.2.1-rc.2",
+    "@deepseek-ai/cordis": "^4.1.0",
+    "@deepseek-ai/dsh-attachment": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-home-paths": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-system-prompt": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-util-values": "0.2.2-rc.1",
+    "@deepseek-ai/schemastery": "^3.19.0",
     "@types/node": "^24.13.3",
     "@types/react": "^18.2.0",
     "esbuild": "^0.28.2",

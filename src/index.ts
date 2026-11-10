@@ -99,6 +99,7 @@ export {
   requestHeaderRoute,
   routeAcceptsImage,
   routedModel,
+  stepSelectionRoute,
   stripAnalyzeImage,
   visionPromptText,
   visionToolsPreExecute,

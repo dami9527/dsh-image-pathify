@@ -10,10 +10,13 @@
  *    waterfall, so a tools-only edit would put the hidden tool back. Vision
  *    also strips the `analyze_image` paragraph from `options.system` (older
  *    callers) and from `system`-role message text (0.1.5 agent-loop puts the
- *    prompt in history, not `GenerateOptions.system`). Assemble-time
- *    filtering only runs after a request header exists, because the first
- *    step's `agent.options` can lag the UI-selected model.
- * 3. `tools/pre-execute` denies `read_image` on text-only routes (reason names
+ *    prompt in history, not `GenerateOptions.system`).
+ * 3. `system-prompt/assemble` strips the off-route prompt section for the
+ *    step's route, resolved from `context.modelSelection` on 0.2.2+ and from
+ *    the last logged request header before that. Tool declarations are NOT
+ *    filtered here: dsh 0.2.2 made them provider-owned and appends them after
+ *    the waterfall, so `llm/stream` remains the only place that can hide them.
+ * 4. `tools/pre-execute` denies `read_image` on text-only routes (reason names
  *    `analyze_image`) and denies `analyze_image` on vision routes.
  * @module dsh-image-pathify/policy
  */
@@ -34,7 +37,7 @@ export const ANALYZE_IMAGE_TOOL = "analyze_image";
 /** Host tool that loads a local image into a vision model's context. */
 export const READ_IMAGE_TOOL = "read_image";
 
-/** Structural face of the calling agent used to resolve the routed model. */
+/** Two-layer split of one request's model route. */
 export interface RouteSource {
   session?: {
     requestHeader?: () =>
@@ -44,16 +47,37 @@ export interface RouteSource {
   options?: { provider?: string; model?: string };
 }
 
-/** Shape of one prompt assembly this policy may filter. */
+/**
+ * Step selection the harness captures before prompt assembly (dsh 0.2.2+
+ * `AssembleContext.modelSelection`). It is exact for the step, including the
+ * first one, so assemble-time filtering no longer has to wait for a logged
+ * request header.
+ */
+export interface StepSelectionLike {
+  readonly provider?: string;
+  readonly model?: string;
+}
+
+/**
+ * Shape of one prompt presentation the assembly waterfall may filter.
+ *
+ * dsh 0.2.2 split the waterfall payload: listeners now receive
+ * `PromptPresentation` (`sections`/`contexts`/`variables`) and the harness
+ * appends the provider-owned `tools` afterwards, so a listener can neither
+ * read nor change tool declarations there. `tools` therefore stays optional
+ * and older harnesses that still pass it keep their previous behavior.
+ */
 export interface PromptAssemblyLike {
   sections: { name: string }[];
-  tools: { name: string }[];
+  tools?: { name: string }[];
 }
 
 /** Per-assembly context that may carry the live agent and turn signal. */
 export interface AssembleRoute {
   agent?: RouteSource;
   signal?: AbortSignal;
+  /** Exact step selection on dsh 0.2.2+; absent on older harnesses. */
+  modelSelection?: StepSelectionLike;
 }
 
 /**
@@ -90,12 +114,15 @@ export function analyzeImageDenyReason(): string {
 export function stripAnalyzeImage<T extends PromptAssemblyLike>(
   assembly: T,
 ): T {
+  const tools = assembly.tools;
   return {
     ...assembly,
     sections: assembly.sections.filter(
       (section) => section.name !== VISION_PROMPT_NAME,
     ),
-    tools: assembly.tools.filter((tool) => tool.name !== ANALYZE_IMAGE_TOOL),
+    ...(tools === undefined
+      ? {}
+      : { tools: tools.filter((tool) => tool.name !== ANALYZE_IMAGE_TOOL) }),
   } as T;
 }
 
@@ -108,8 +135,11 @@ export function filterAssemblyForRoute<T extends PromptAssemblyLike>(
   vision: boolean,
 ): T {
   if (vision) return stripAnalyzeImage(assembly);
-  const tools = assembly.tools.filter((tool) => tool.name !== READ_IMAGE_TOOL);
-  if (tools.length === assembly.tools.length) return assembly;
+  const current = assembly.tools;
+  // 0.2.2+ never passes `tools` here; `llm/stream` hides the declaration instead.
+  if (current === undefined) return assembly;
+  const tools = current.filter((tool) => tool.name !== READ_IMAGE_TOOL);
+  if (tools.length === current.length) return assembly;
   return { ...assembly, tools } as T;
 }
 
@@ -306,9 +336,25 @@ export function requestHeaderRoute(
 }
 
 /**
- * `system-prompt/assemble` listener: hide the off-route image tool once the
- * session has a request header. Before that, leave both tools in place so
- * `llm/stream` can filter against the model actually being dispatched.
+ * Provider/model from the step selection the harness captured before this
+ * assembly (dsh 0.2.2+). Available on the first step of a turn, unlike a
+ * request header, which the first request of a Session has not logged yet.
+ */
+export function stepSelectionRoute(
+  selection: StepSelectionLike | undefined,
+): { provider: string; model: string } | undefined {
+  const provider = selection?.provider;
+  const model = selection?.model;
+  if (provider === undefined || model === undefined) return undefined;
+  return { provider, model };
+}
+
+/**
+ * `system-prompt/assemble` listener: hide the off-route image tool for the
+ * step's route. On dsh 0.2.2+ the harness passes `modelSelection`, so the very
+ * first assembly of a turn is already exact; older harnesses fall back to the
+ * last logged request header, and before either exists both tools stay in
+ * place so `llm/stream` can filter against the dispatching model.
  */
 export async function assembleVisionPolicy<T extends PromptAssemblyLike>(
   ctx: Context,
@@ -317,11 +363,13 @@ export async function assembleVisionPolicy<T extends PromptAssemblyLike>(
   next: () => Promise<T>,
 ): Promise<T> {
   const result = await next();
-  const header = requestHeaderRoute(context.agent);
-  if (header === undefined) return result;
+  const route =
+    stepSelectionRoute(context.modelSelection) ??
+    requestHeaderRoute(context.agent);
+  if (route === undefined) return result;
   const vision = await routeAcceptsImage(
     ctx,
-    { options: header },
+    { options: route },
     context.signal,
   );
   return filterAssemblyForRoute(result, vision);

@@ -13,6 +13,7 @@ import {
   requestHeaderRoute,
   routeAcceptsImage,
   routedModel,
+  stepSelectionRoute,
   stripAnalyzeImage,
   visionPromptText,
   visionToolsPreExecute,
@@ -257,6 +258,85 @@ describe("assembleVisionPolicy", () => {
       async () => assembly,
     );
     expect(result).toEqual(assembly);
+  });
+
+  it("survives the 0.2.2 presentation that omits tools on a text-only route", async () => {
+    const ctx = new Context();
+    ctx.provide("llm", {
+      resolveModelInfo: async () => ({ inputModalities: ["text"] }),
+    });
+    const presentation = { sections: [{ name: VISION_PROMPT_NAME }] };
+    const result = await assembleVisionPolicy(
+      ctx,
+      presentation,
+      {
+        agent: {
+          session: {
+            requestHeader: () => ({ config: { provider: "p", model: "m" } }),
+          },
+        },
+      },
+      async () => presentation,
+    );
+    expect(result.sections).toEqual([{ name: VISION_PROMPT_NAME }]);
+    expect("tools" in result).toBe(false);
+  });
+
+  it("strips the vision section without tools on a vision route", async () => {
+    const ctx = new Context();
+    ctx.provide("llm", {
+      resolveModelInfo: async () => ({ inputModalities: ["image"] }),
+    });
+    const presentation = { sections: [{ name: VISION_PROMPT_NAME }] };
+    const result = await assembleVisionPolicy(
+      ctx,
+      presentation,
+      {
+        agent: {
+          session: {
+            requestHeader: () => ({
+              config: { provider: "p", model: "vision" },
+            }),
+          },
+        },
+      },
+      async () => presentation,
+    );
+    expect(result.sections).toEqual([]);
+    expect("tools" in result).toBe(false);
+  });
+
+  it("filters from the step selection before any request header exists", async () => {
+    const ctx = new Context();
+    ctx.provide("llm", {
+      resolveModelInfo: async () => ({ inputModalities: ["image"] }),
+    });
+    const result = await assembleVisionPolicy(
+      ctx,
+      assembly,
+      { modelSelection: { provider: "p", model: "vision" } },
+      async () => assembly,
+    );
+    expect(result.sections).toEqual([]);
+    expect(result.tools?.map((tool) => tool.name)).toEqual([
+      READ_IMAGE_TOOL,
+      "bash",
+    ]);
+  });
+});
+
+describe("stepSelectionRoute", () => {
+  it("reads an exact step route", () => {
+    expect(stepSelectionRoute({ provider: "p", model: "m" })).toEqual({
+      provider: "p",
+      model: "m",
+    });
+  });
+
+  it("reports an incomplete or absent selection as unknown", () => {
+    expect(stepSelectionRoute(undefined)).toBeUndefined();
+    expect(stepSelectionRoute({ provider: "p" })).toBeUndefined();
+    expect(stepSelectionRoute({ model: "m" })).toBeUndefined();
   });
 });
 
